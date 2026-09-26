@@ -24,38 +24,41 @@ Creation Date: 9/14/2026
 """
 
 import board_manager
-import random # Random is used to generate the mine locations
+import random  # Random is used to generate the mine locations
+
 
 class GameManager:
     """
     Game manager is responsible for interacting with the board to update it according to the game logic.
     """
-    def __init__(self, num_mines) -> None: # Original code written by Drew Medlock
+
+    def __init__(self, num_mines) -> None:  # Original code written by Drew Medlock
         """
         Has states for the running of the game.
         Gets a board object
         is_lost and is_won are set to easily identify if the game has ended
         num_mines is the number of mines given from the user selection
         mine_count is the number of mines - the number of flags
-        Cells to clear is the amount of cells that haven't been cleared/uncovered of the safe cells
+        Cells to clear is the amount of cells that haven't been cleared/uncovered of the safe cells 
         """
         self.board = board_manager.BoardManager()
         self.is_lost = False
         self.is_won = False
         self.num_mines = num_mines
-        self.mine_count = self.num_mines # will be updated with by decreasing when flagging
+        # will be updated with by decreasing when flagging
+        self.mine_count = self.num_mines
         self.flags = 0
         self.cells_to_clear = board_manager.BOARD_SIZE ** 2 - self.num_mines
         self.are_mines_populated = False
 
-
-
-    def populate_mines(self, user_row, user_col) -> None: # Original code written by Drew Medlock
+    # Original code written by Drew Medlock
+    def populate_mines(self, user_row, user_col) -> None:
         """
         Generates a list of all the possible locations, then picks the mines from it
         """
         # Generate a list of every cell on the board
-        locations = [(row, col) for row in range(board_manager.BOARD_SIZE) for col in range(board_manager.BOARD_SIZE)]
+        locations = [(row, col) for row in range(board_manager.BOARD_SIZE)
+                     for col in range(board_manager.BOARD_SIZE)]
         # Remove the user's selection and the adjacent cells
         locations.remove((user_row, user_col))
         for neighbor in self.board.neighbors(user_row, user_col):
@@ -65,7 +68,8 @@ class GameManager:
         self.board.set_mines(mine_locations)
         self.are_mines_populated = True
 
-    def reveal_cell(self, row: int, col: int) -> None: # Original code written by Drew Medlock, updated by Carter Steenhard and DeepSeek V4.1 Flash
+    # Original code written by Drew Medlock, updated by Carter Steenhard and DeepSeek V4.1 Flash
+    def reveal_cell(self, row: int, col: int) -> None:
         """
         This function will reveal a cell if it is not flagged or already revealed
         If the cell has 0 neighboring mines it will recursively reveal all of it's neighbors
@@ -84,10 +88,10 @@ class GameManager:
                     self.is_won = True
                 # Perform the recursive-uncover process
                 if self.board.adjacent_mines(row, col) == 0:
-                    for neighbor_row, neighbor_col in self.board.neighbors(row, col): 
+                    for neighbor_row, neighbor_col in self.board.neighbors(row, col):
                         self.reveal_cell(neighbor_row, neighbor_col)
 
-    def flag_cell(self, row: int, col: int) -> None: # Original code written by Drew Medlock
+    def flag_cell(self, row: int, col: int) -> None:  # Original code written by Drew Medlock
         """
         Sets a cell as flagged and updates the flag counter and mine_count accordingly
         """
@@ -97,7 +101,8 @@ class GameManager:
         if self.mine_count > 0:
             self.mine_count -= 1
 
-    def unflag_cell(self, row: int, col: int) -> None: # Original code written by Drew Medlock
+    # Original code written by Drew Medlock
+    def unflag_cell(self, row: int, col: int) -> None:
         """
         Removes a cell as flagged and updates the mine_count accordingly
         """

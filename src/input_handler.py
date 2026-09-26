@@ -64,6 +64,9 @@ class InputHandler:
         self.cell_size = cell_size
         self.board_left = board_left
         self.board_bottom = board_bottom
+        self.flag_sound = arcade.load_sound("./sfx/flag.wav")
+        self.bomb_sound = arcade.load_sound("./sfx/bomb.mp3")
+        self.blip_sound = arcade.load_sound("./sfx/blip.wav")
 
     def handle_click(self, x, y, button):
         """Convert a mouse click into a board row and column."""
@@ -81,6 +84,10 @@ class InputHandler:
                 self.game.populate_mines(row, col)
             if self.game.board.is_covered(row, col):
                 self.game.reveal_cell(row, col)
+                if self.game.is_lost:
+                    arcade.play_sound(self.bomb_sound)
+                else:
+                    arcade.play_sound(self.blip_sound)
 
         # Right click toggles a flag
         elif button == arcade.MOUSE_BUTTON_RIGHT:
@@ -88,4 +95,5 @@ class InputHandler:
                 if self.game.board.is_flagged(row, col):
                     self.game.unflag_cell(row, col)
                 else:
+                    arcade.play_sound(self.flag_sound)
                     self.game.flag_cell(row, col)
