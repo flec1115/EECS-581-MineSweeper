@@ -261,6 +261,17 @@ classDiagram
 | Blake Pennel | Lead UI Developer |
 | Kyler Russell | General Developer and Code Reviewer |
 
+## Group 5 Team Project 2
+
+| Member | Role |
+| --- | --- |
+| John Vitha | UI Devlopment |
+| Bill Grimsley | Documentation |
+| Felix Balandran | Feature Additions |
+| Abdulaziz Arab | AI Logic Developer |
+| Jamareon Davis | AI Logic Developer |
+| Riley Backus | AI Logic Developer |
+
 ## AI Usage
 
 Some modules were drafted or revised with generative AI tools (ChatGPT and DeepSeek). Each source file's header documents which tool was used, why, and how the output was validated.
