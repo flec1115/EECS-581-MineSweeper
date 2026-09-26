@@ -19,7 +19,10 @@ Update 9/16/2026 - Carter Steenhard and DeepSeek V4.1 Flash:
 A description of how and why AI was used: DeepSeek V4.1 Flash used to add the win condition and the guard against revealing an already uncovered cell
 How you validated and revised the AI output: Proofreading, logic tests for win, loss, repeated reveals, and flag counting, and a scripted window test of the status indicator
 The challenges or limitations you faced while using AI: Keeping the win condition accurate when a cell is revealed more than once and matching the existing style
-Authors: Drew Medlock, Carter Steenhard, Alex Rawson
+
+Update 9/26/2026 - Felix
+Add sound effects capability to the game for win, loss, and flagging actions. This includes loading sound files and triggering them at appropriate game events.
+Authors: Drew Medlock, Carter Steenhard, Alex Rawson, Felix 
 Creation Date: 9/14/2026
 """
 

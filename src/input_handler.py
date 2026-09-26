@@ -46,11 +46,14 @@ Fixed 10x10 grid size
 
 Mine count user-specified (10–20) at game start
 
+Update 9/26/2026 - Felix
+Add sound effects capability to the game for win, loss, and flagging actions. This includes loading sound files and triggering them at appropriate game events.
+
   
 How you validated and revised the AI output: Proofreading, testing, and validating accuracy with intentions
 The challenges or limitations you faced while using AI: Validating logical execution of the input handler code and ensuring that the input handler functioned as intended took a significant amount of proofreading and testing.
 Attributions: 
-Authors: Blake Pennel
+Authors: Blake Pennel, Felix
 Creation Date: 9/15/2026
 """
 import arcade
@@ -58,12 +61,13 @@ import arcade
 
 class InputHandler:
     """Handles simple mouse input for the Minesweeper board."""
-
+        #inialization features for the input handler, including sound effects for flagging, losing, and winning
     def __init__(self, game, cell_size, board_left, board_bottom):
         self.game = game
         self.cell_size = cell_size
         self.board_left = board_left
         self.board_bottom = board_bottom
+        #sound effect variables from the arcade library, loaded from the sfx folder
         self.flag_sound = arcade.load_sound("./sfx/flag.wav")
         self.bomb_sound = arcade.load_sound("./sfx/bomb.mp3")
         self.blip_sound = arcade.load_sound("./sfx/blip.wav")
@@ -85,6 +89,8 @@ class InputHandler:
                 self.game.populate_mines(row, col)
             if self.game.board.is_covered(row, col):
                 self.game.reveal_cell(row, col)
+
+                # Play appropriate sound effects for win, loss, or normal reveal
                 if self.game.is_lost:
                     arcade.play_sound(self.bomb_sound)
                 elif self.game.is_won:
@@ -99,4 +105,5 @@ class InputHandler:
                     self.game.unflag_cell(row, col)
                 else:
                     self.game.flag_cell(row, col)
+                #play sound for setting flag
                 arcade.play_sound(self.flag_sound)

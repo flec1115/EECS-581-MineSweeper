@@ -11,7 +11,7 @@ reveal all mines on loss, and R to restart
 
 Inputs: Board state
 Outputs: Game window
-External Sources: ChatGPT 5.6 Sol High Thinking, DeepSeek V4.1 Flash
+External Sources: ChatGPT 5.6 Sol High Thinking, DeepSeek V4.1 Flash, ChatGPT 5.6 Luna
 LLM AND GENERATIVE AI TOOLS:
 A description of how and why AI was used: ChatGPT used for drafting and revising code with new, unfamiliar UI library
 The specific prompts you entered: 
@@ -56,7 +56,9 @@ The challenges or limitations you faced while using AI: Validating logical execu
 
 Update 9/16/2026 - Carter Steenhard and DeepSeek V4.1 Flash:
 A description of how and why AI was used: DeepSeek V4.1 Flash used to implement the mine count selection, labels, numbers, status, flag counter, reveal mines on loss, and restart update
+                                            ChatGPT GPT - 5.6 Luna Used to inplement UI for mode selection and difficulty selection screens. It was used a reference for an easy way to set up buttons and their locations on the screen. Further code related was created manually
 How you validated and revised the AI output: Proofreading, logic tests for the board and game logic, and a scripted window test covering setup, revealing, flagging, loss, restart, and win
+    UI testing was done when implementing the mode selection and difficulty selection screens. The buttons were tested to ensure they were clickable and that the correct mode and difficulty were selected.
 The challenges or limitations you faced while using AI: Keeping the diff minimal while matching the existing code style and validating the arcade API calls against the installed library version
 Attributions: 
 Authors: Kyler Russell, Blake Pennel, Carter Steenhard
@@ -77,6 +79,11 @@ WINDOW_WIDTH = 600
 WINDOW_HEIGHT = 650
 
 COLUMN_LABELS = "ABCDEFGHIJ"
+#configs for setting buttons for the mode selection and difficulty selection screens
+#formatting used chatGPT GPT-5.6 Luna for reference of an easy way to set up buttons and their locations on the screen
+MODE_OPTIONS = (("Solo", 35, 350, 160, 60), ("Co-op", 220, 350, 160, 60),("Computer Solve", 405, 350, 160, 60))
+DIFFICULTY_OPTIONS = (("Easy", 115, 205, 110, 55), ("Medium", 245, 205, 110, 55),("Hard", 375, 205, 110, 55))
+CONTINUE_BUTTON = (220, 90, 160, 55)
 
 # Standard Minesweeper colors for the adjacent mine counts
 NUMBER_COLORS = {1: arcade.color.BLUE, 2: arcade.color.GREEN, 3: arcade.color.RED,
@@ -93,6 +100,10 @@ class MinesweeperWindow(arcade.Window):
         # The game is created once the player confirms a mine count
         self.game = None
         self.input_handler = None
+        #states for AI selection screen
+        self.ui_state = "mode_select"
+        self.selected_mode = "Solo"
+        self.selected_ai_level = "Easy"
         self.mine_count_input = ""
         self.setup_error = ""
 
@@ -115,6 +126,11 @@ class MinesweeperWindow(arcade.Window):
         self.clear(arcade.color.WHITE)
 
         if self.game is None:
+            #if no mode has been selected, draw the mode selection screen
+            if self.ui_state == "mode_select":
+                self.draw_mode_select()
+                return
+            #if no mine count has been selected, draw the mine count selection screen
             self.draw_setup()
             return
 
@@ -188,9 +204,49 @@ class MinesweeperWindow(arcade.Window):
         if self.setup_error:
             arcade.draw_text(self.setup_error, WINDOW_WIDTH / 2, 260, arcade.color.RED, 16, anchor_x="center")
 
+
+    def draw_mode_select(self):
+        """Draw the game mode and computer difficulty selection screen."""
+        #draw minesweeper title and mode selection text
+        arcade.draw_text("Minesweeper", WINDOW_WIDTH / 2, 525, arcade.color.BLACK, 32, anchor_x="center")
+        arcade.draw_text("Select Game Mode", WINDOW_WIDTH / 2, 430, arcade.color.BLACK, 20, anchor_x="center")
+
+        for label, left, bottom, width, height in MODE_OPTIONS:
+            selected = label == self.selected_mode
+            #highlight selected feature in dark blue, unselected features in light gray, with white text for selected and black text for unselected
+            color = arcade.color.DARK_BLUE if selected else arcade.color.LIGHT_GRAY
+            text_color = arcade.color.WHITE if selected else arcade.color.BLACK
+            #draw the button and text for the button
+            arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, color)
+            arcade.draw_text(label, left + width / 2, bottom + height / 2, text_color, 16, anchor_x="center", anchor_y="center")
+            #this screen will create the self.selected_mode variable that will be used to determine the game mode when the player continues to the next screen
+       
+        #draw computer difficulty section
+        arcade.draw_text("Computer Difficulty", WINDOW_WIDTH / 2, 285, arcade.color.BLACK, 20,
+                         anchor_x="center")
+        #draw corresponding buttons, highlight selected button in dark blue
+        for label, left, bottom, width, height in DIFFICULTY_OPTIONS:
+            selected = label == self.selected_ai_level
+            color = arcade.color.DARK_BLUE if selected else arcade.color.LIGHT_GRAY
+            text_color = arcade.color.WHITE if selected else arcade.color.BLACK
+            arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, color)
+            arcade.draw_text(label, left + width / 2, bottom + height / 2, text_color, 16, anchor_x="center", anchor_y="center")
+            #this will create the self.selected_ai_level variable that will be used to determine the computer difficulty when the player continues to the next screen
+
+        #draw continue button to move on to next page
+        left, bottom, width, height = CONTINUE_BUTTON
+        arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, arcade.color.GREEN)
+        arcade.draw_text("Continue", left + width / 2, bottom + height / 2, arcade.color.WHITE, 18, anchor_x="center", anchor_y="center")
+
     def on_key_press(self, key, modifiers):
-        """Handle mine count entry, game start, and restart."""
+        """Handle mode/AI selection, mine count entry, game start, and restart."""
         if self.game is None:
+            #add config for mode selection screen.
+            if self.ui_state == "mode_select":
+                #if you hit enter, move to mine setup screen
+                if key == arcade.key.ENTER:
+                    self.ui_state = "mine_setup"
+                return
             if arcade.key.KEY_0 <= key <= arcade.key.KEY_9:
                 self.mine_count_input += chr(key)
                 self.setup_error = ""
@@ -205,7 +261,27 @@ class MinesweeperWindow(arcade.Window):
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the input handler."""
-        if self.game is None or self.game.is_lost or self.game.is_won:
+        #if no game has been started and we are still in the mode selection screen, check if a button has been clicked and update the selected mode or difficulty accordingly
+        if self.game is None:
+            if button == arcade.MOUSE_BUTTON_LEFT and self.ui_state == "mode_select":
+                for label, left, bottom, width, height in MODE_OPTIONS:
+                    #this formula gets the label of the place you clicked. If there isn't a button there, it won't do anything. If there is a button, it will update the selected mode or difficulty accordingly
+                    if left <= x <= left + width and bottom <= y <= bottom + height:
+                        self.selected_mode = label
+                        return
+                for label, left, bottom, width, height in DIFFICULTY_OPTIONS:
+                    #same formula as above, but for the difficulty selection buttons
+                    if left <= x <= left + width and bottom <= y <= bottom + height:
+                        self.selected_ai_level = label
+                        return
+                #same formula as above, but for the continue button. If you click it, it will move to the mine setup screen
+                left, bottom, width, height = CONTINUE_BUTTON
+                if left <= x <= left + width and bottom <= y <= bottom + height:
+                    self.ui_state = "mine_setup"
+            return
+
+        #if the game is over, don't allow any more input
+        if self.game.is_lost or self.game.is_won:
             return
 
         self.input_handler.handle_click(x, y, button)

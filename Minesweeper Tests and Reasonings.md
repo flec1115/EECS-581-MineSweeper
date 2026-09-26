@@ -42,3 +42,13 @@ Authors: Kyle Fleming
 ## Submission Requirements
 - Test 16 - Check the final commit timestamp on master is before the due date, and that master contains all four modules and the documentation with complete headers.
     - Reason: Code freeze is judged on that timestamp, and all code and documentation must be on master.
+
+## Group 5 Testing:
+
+## Sound Effects adding
+- Test 1 - play the game normally, purposefully placing flags, winning, losing, and going through all game states to see if configured sound effects all are reached
+    - Reason: Check if all sound effects work and are mapped to appropriate action
+
+## UI Development
+- Test 2 - check each game mode and AI level to ensure they all highlight when selected. Play the game normally after each on to ensure that no game logic was altered by UI code changes. This was implemented before AI logic or game modes were added, so none of that should be changed yet.
+    - Reason: Ensure that no changes were accidentally made to game logic and that the UI is independently added (for now)
