@@ -136,8 +136,8 @@ classDiagram
       +GameManager game
       +InputHandler input_handler
       +str ui_state
-      +str selected_mode
-      +str selected_ai_level
+      +str mode
+      +str ai_difficulty
       +str mine_count_input
       +str setup_error
       +start_game(num_mines) None

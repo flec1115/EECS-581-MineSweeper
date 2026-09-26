@@ -102,8 +102,8 @@ class MinesweeperWindow(arcade.Window):
         self.input_handler = None
         #states for AI selection screen
         self.ui_state = "mode_select"
-        self.selected_mode = "Solo"
-        self.selected_ai_level = "Easy"
+        self.mode = "Solo"
+        self.ai_difficulty = "Easy"
         self.mine_count_input = ""
         self.setup_error = ""
 
@@ -212,26 +212,34 @@ class MinesweeperWindow(arcade.Window):
         arcade.draw_text("Select Game Mode", WINDOW_WIDTH / 2, 430, arcade.color.BLACK, 20, anchor_x="center")
 
         for label, left, bottom, width, height in MODE_OPTIONS:
-            selected = label == self.selected_mode
+            selected = label == self.mode
             #highlight selected feature in dark blue, unselected features in light gray, with white text for selected and black text for unselected
-            color = arcade.color.DARK_BLUE if selected else arcade.color.LIGHT_GRAY
-            text_color = arcade.color.WHITE if selected else arcade.color.BLACK
+            if selected:
+                color = arcade.color.DARK_BLUE 
+                text_color = arcade.color.WHITE
+            else:
+                text_color = arcade.color.BLACK
+                color = arcade.color.LIGHT_GRAY
             #draw the button and text for the button
             arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, color)
             arcade.draw_text(label, left + width / 2, bottom + height / 2, text_color, 16, anchor_x="center", anchor_y="center")
-            #this screen will create the self.selected_mode variable that will be used to determine the game mode when the player continues to the next screen
+            #this screen will create the self.mode variable that will be used to determine the game mode when the player continues to the next screen
        
         #draw computer difficulty section
         arcade.draw_text("Computer Difficulty", WINDOW_WIDTH / 2, 285, arcade.color.BLACK, 20,
                          anchor_x="center")
         #draw corresponding buttons, highlight selected button in dark blue
         for label, left, bottom, width, height in DIFFICULTY_OPTIONS:
-            selected = label == self.selected_ai_level
-            color = arcade.color.DARK_BLUE if selected else arcade.color.LIGHT_GRAY
-            text_color = arcade.color.WHITE if selected else arcade.color.BLACK
+            selected = label == self.ai_difficulty
+            if selected:
+                color = arcade.color.DARK_BLUE 
+                text_color = arcade.color.WHITE
+            else:
+                text_color = arcade.color.BLACK
+                color = arcade.color.LIGHT_GRAY
             arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, color)
             arcade.draw_text(label, left + width / 2, bottom + height / 2, text_color, 16, anchor_x="center", anchor_y="center")
-            #this will create the self.selected_ai_level variable that will be used to determine the computer difficulty when the player continues to the next screen
+            #this will create the self.ai_difficulty variable that will be used to determine the computer difficulty when the player continues to the next screen
 
         #draw continue button to move on to next page
         left, bottom, width, height = CONTINUE_BUTTON
@@ -261,18 +269,18 @@ class MinesweeperWindow(arcade.Window):
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the input handler."""
-        #if no game has been started and we are still in the mode selection screen, check if a button has been clicked and update the selected mode or difficulty accordingly
+        #if no game has been started and we are still in the mode selection screen...
         if self.game is None:
             if button == arcade.MOUSE_BUTTON_LEFT and self.ui_state == "mode_select":
                 for label, left, bottom, width, height in MODE_OPTIONS:
-                    #this formula gets the label of the place you clicked. If there isn't a button there, it won't do anything. If there is a button, it will update the selected mode or difficulty accordingly
+                    #this formula gets the label of the place you clicked. If there isn't a button there, it won't do anything. If there is a button, it will update the selected mode accordingly
                     if left <= x <= left + width and bottom <= y <= bottom + height:
-                        self.selected_mode = label
+                        self.mode = label
                         return
                 for label, left, bottom, width, height in DIFFICULTY_OPTIONS:
                     #same formula as above, but for the difficulty selection buttons
                     if left <= x <= left + width and bottom <= y <= bottom + height:
-                        self.selected_ai_level = label
+                        self.ai_difficulty = label
                         return
                 #same formula as above, but for the continue button. If you click it, it will move to the mine setup screen
                 left, bottom, width, height = CONTINUE_BUTTON
