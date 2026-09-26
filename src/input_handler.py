@@ -67,6 +67,7 @@ class InputHandler:
         self.flag_sound = arcade.load_sound("./sfx/flag.wav")
         self.bomb_sound = arcade.load_sound("./sfx/bomb.mp3")
         self.blip_sound = arcade.load_sound("./sfx/blip.wav")
+        self.cheer_sound = arcade.load_sound("./sfx/cheer.wav")
 
     def handle_click(self, x, y, button):
         """Convert a mouse click into a board row and column."""
@@ -86,6 +87,8 @@ class InputHandler:
                 self.game.reveal_cell(row, col)
                 if self.game.is_lost:
                     arcade.play_sound(self.bomb_sound)
+                elif self.game.is_won:
+                    arcade.play_sound(self.cheer_sound)
                 else:
                     arcade.play_sound(self.blip_sound)
 
@@ -95,5 +98,5 @@ class InputHandler:
                 if self.game.board.is_flagged(row, col):
                     self.game.unflag_cell(row, col)
                 else:
-                    arcade.play_sound(self.flag_sound)
                     self.game.flag_cell(row, col)
+                arcade.play_sound(self.flag_sound)
