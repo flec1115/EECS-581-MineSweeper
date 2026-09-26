@@ -42,7 +42,7 @@ python3 src/user_interface.py
 
 ## How to Play
 
-1. **Choose a game mode.** Select Solo, Co-op, or Computer Solve on the first screen. Select Easy, Medium, or Hard for computer difficulty, then click Continue or press `Enter`. The difficulty is recorded but does not affect gameplay yet.
+1. **Choose a game mode.** Select Solo, Co-op, or Computer Solve on the first screen. Select Easy, Medium, or Hard for computer difficulty, then click Continue or press `Enter`. 
 2. **Choose a mine count.** Type a number from 10 to 20 and press `Enter`. Pressing `Enter` with nothing typed uses the default of 10. `Backspace` edits your entry.
 3. **Reveal cells** with a left click. A number shows how many of the up to eight surrounding cells contain mines.
 4. **Flag suspected mines** with a right click. Right-click a flag again to remove it. Flagged cells can't be revealed until the flag is removed.
