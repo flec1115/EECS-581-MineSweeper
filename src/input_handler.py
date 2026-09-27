@@ -62,11 +62,12 @@ import arcade
 class InputHandler:
     """Handles simple mouse input for the Minesweeper board."""
         #inialization features for the input handler, including sound effects for flagging, losing, and winning
-    def __init__(self, game, cell_size, board_left, board_bottom):
+    def __init__(self, game, cell_size, board_left, board_bottom, sound_enabled=True):
         self.game = game
         self.cell_size = cell_size
         self.board_left = board_left
         self.board_bottom = board_bottom
+        self.sound_enabled = sound_enabled
         #sound effect variables from the arcade library, loaded from the sfx folder
         self.flag_sound = arcade.load_sound("./sfx/flag.wav")
         self.bomb_sound = arcade.load_sound("./sfx/bomb.mp3")
@@ -90,13 +91,14 @@ class InputHandler:
             if self.game.board.is_covered(row, col):
                 self.game.reveal_cell(row, col)
 
-                # Play appropriate sound effects for win, loss, or normal reveal
-                if self.game.is_lost:
-                    arcade.play_sound(self.bomb_sound)
-                elif self.game.is_won:
-                    arcade.play_sound(self.cheer_sound)
-                else:
-                    arcade.play_sound(self.blip_sound)
+                # Only play sound effects if sound is enabled
+                if self.sound_enabled:
+                    if self.game.is_lost:
+                        arcade.play_sound(self.bomb_sound)
+                    elif self.game.is_won:
+                        arcade.play_sound(self.cheer_sound)
+                    else:
+                        arcade.play_sound(self.blip_sound)
 
         # Right click toggles a flag
         elif button == arcade.MOUSE_BUTTON_RIGHT:
@@ -105,5 +107,5 @@ class InputHandler:
                     self.game.unflag_cell(row, col)
                 else:
                     self.game.flag_cell(row, col)
-                #play sound for setting flag
-                arcade.play_sound(self.flag_sound)
+                if self.sound_enabled:
+                    arcade.play_sound(self.flag_sound)

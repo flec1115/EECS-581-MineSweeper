@@ -78,6 +78,10 @@ BOARD_BOTTOM = 50
 WINDOW_WIDTH = 600
 WINDOW_HEIGHT = 650
 
+SOUND_X = 522
+SOUND_Y = 575
+SOUND_SIZE = 48
+
 COLUMN_LABELS = "ABCDEFGHIJ"
 #configs for setting buttons for the mode selection and difficulty selection screens
 #formatting used chatGPT GPT-5.6 Luna for reference of an easy way to set up buttons and their locations on the screen
@@ -106,11 +110,15 @@ class MinesweeperWindow(arcade.Window):
         self.ai_difficulty = "Easy"
         self.mine_count_input = ""
         self.setup_error = ""
+        # Sound is on by default
+        self.sound_enabled = True
+        # Load Arcade's built-in speaker icon
+        self.sound_icon = arcade.load_texture(":resources:/onscreen_controls/flat_dark/sound_on.png")
 
     def start_game(self, num_mines):
         """Create a new game and rebuild the input handler for it."""
         self.game = GameManager(num_mines)
-        self.input_handler = InputHandler(self.game, CELL_SIZE, BOARD_LEFT, BOARD_BOTTOM)
+        self.input_handler = InputHandler(self.game, CELL_SIZE, BOARD_LEFT, BOARD_BOTTOM, sound_enabled=self.sound_enabled)
 
     def confirm_mine_count(self):
         """Start a game with the typed mine count, or report that it is invalid."""
@@ -120,6 +128,31 @@ class MinesweeperWindow(arcade.Window):
             return
 
         self.start_game(num_mines)
+
+
+    def draw_sound_button(self):
+        """Draw the speaker icon with a red line when muted."""
+        # Draw the speaker
+        arcade.draw_texture_rect(
+            self.sound_icon,
+            arcade.LBWH(
+                SOUND_X,
+                SOUND_Y,
+                SOUND_SIZE,
+                SOUND_SIZE
+            )
+        )
+
+    # Draw a red diagonal line when muted
+        if not self.sound_enabled:
+            arcade.draw_line(
+                SOUND_X + 6,
+                SOUND_Y + 6,
+                SOUND_X + SOUND_SIZE - 6,
+                SOUND_Y + SOUND_SIZE - 6,
+                arcade.color.RED,
+                4
+            )
 
     def on_draw(self):
         """Draw the setup screen or the current board."""
@@ -245,6 +278,7 @@ class MinesweeperWindow(arcade.Window):
         left, bottom, width, height = CONTINUE_BUTTON
         arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, arcade.color.GREEN)
         arcade.draw_text("Continue", left + width / 2, bottom + height / 2, arcade.color.WHITE, 18, anchor_x="center", anchor_y="center")
+        self.draw_sound_button()
 
     def on_key_press(self, key, modifiers):
         """Handle mode/AI selection, mine count entry, game start, and restart."""
@@ -272,6 +306,10 @@ class MinesweeperWindow(arcade.Window):
         #if no game has been started and we are still in the mode selection screen...
         if self.game is None:
             if button == arcade.MOUSE_BUTTON_LEFT and self.ui_state == "mode_select":
+                if (SOUND_X <= x <= SOUND_X + SOUND_SIZE and SOUND_Y <= y <= SOUND_Y + SOUND_SIZE):
+                    # Toggle sound on or off
+                    self.sound_enabled = not self.sound_enabled
+                    return
                 for label, left, bottom, width, height in MODE_OPTIONS:
                     #this formula gets the label of the place you clicked. If there isn't a button there, it won't do anything. If there is a button, it will update the selected mode accordingly
                     if left <= x <= left + width and bottom <= y <= bottom + height:
