@@ -97,10 +97,22 @@ class MinesweeperWindow(arcade.Window):
         self.mine_count_input = ""
         self.setup_error = ""
 
+        # AI solver: solver instance, difficulty, and turn-taking state
+        self.ai = None
+        self.ai_level = "easy"
+        self.ai_mode = "off"      # "off" | "interactive" | "auto"
+        self.ai_timer = 0.0
+        self.ai_pending = False   # interactive: the AI owes a turn
+        self.ai_reason = ""
+
     def start_game(self, num_mines):
         """Create a new game and rebuild the input handler for it."""
         self.game = GameManager(num_mines)
         self.input_handler = InputHandler(self.game, CELL_SIZE, BOARD_LEFT, BOARD_BOTTOM)
+      # AI solver: rebind to the new game and clear per-game turn state
+        self.ai = make_ai(self.game, self.ai_level)
+        self.ai_pending = False
+        self.ai_reason = ""
 
     def confirm_mine_count(self):
         """Start a game with the typed mine count, or report that it is invalid."""
@@ -177,6 +189,11 @@ class MinesweeperWindow(arcade.Window):
 
         arcade.draw_text(status, BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE, board_top + 30,
                          status_color, 18, anchor_x="right")
+              # AI solver: difficulty, mode, controls, and the reason for the last move
+        arcade.draw_text(f"AI: {self.ai_level} [{self.ai_mode}]  (A mode, D level, S step)",
+                         BOARD_LEFT, 28, arcade.color.BLACK, 12)
+        arcade.draw_text(self.ai_reason, BOARD_LEFT, 10, arcade.color.DARK_BLUE, 12)
+
 
     def draw_setup(self):
         """Draw the mine count selection screen."""
@@ -203,6 +220,42 @@ class MinesweeperWindow(arcade.Window):
         elif key == arcade.key.R:
             # R starts a new game with the same mine count
             self.start_game(self.game.num_mines)
+          # AI solver: D cycles difficulty, A cycles mode, S takes one turn
+        elif key == arcade.key.D:
+            order = ["easy", "medium", "hard"]
+            self.ai_level = order[(order.index(self.ai_level) + 1) % len(order)]
+            self.ai = make_ai(self.game, self.ai_level)  # rebind, same board
+        elif key == arcade.key.A:
+            order = ["off", "interactive", "auto"]
+            self.ai_mode = order[(order.index(self.ai_mode) + 1) % len(order)]
+            self.ai_timer = 0.0
+        elif key == arcade.key.S:
+            self._take_ai_turn()
+
+      # AI solver: play a single AI turn and record its justification
+    def _take_ai_turn(self):
+        """Play one AI move and record why it was made."""
+        if self.game is None or self.game.is_won or self.game.is_lost:
+            return
+        move = self.ai.step()
+        self.ai_reason = move.reason if move else "no moves available"
+
+    # AI solver: arcade calls this every frame; used to pace automatic solving
+    def on_update(self, delta_time):
+        """Pace AI turns so the moves are watchable."""
+        if self.game is None or self.game.is_won or self.game.is_lost:
+            return
+        if self.ai_mode == "auto":
+            self.ai_timer += delta_time
+            if self.ai_timer >= 0.25:
+                self.ai_timer = 0.0
+                self._take_ai_turn()
+        elif self.ai_mode == "interactive" and self.ai_pending:
+            self.ai_timer += delta_time
+            if self.ai_timer >= 0.35:
+                self.ai_timer = 0.0
+                self.ai_pending = False
+                self._take_ai_turn()
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the input handler."""
@@ -210,6 +263,11 @@ class MinesweeperWindow(arcade.Window):
             return
 
         self.input_handler.handle_click(x, y, button)
+
+        # AI solver: in interactive mode a left click hands the turn to the AI
+        if self.ai_mode == "interactive" and button == arcade.MOUSE_BUTTON_LEFT:
+            self.ai_pending = True
+            self.ai_timer = 0.0
 
 
 def main():
