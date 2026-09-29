@@ -68,6 +68,7 @@ import arcade
 from game_logic import GameManager
 import board_manager
 from input_handler import InputHandler
+from ai_solver import make_ai  # AI solver: factory for the Easy/Medium/Hard solvers
 
 
 CELL_SIZE = 50
@@ -106,8 +107,13 @@ class MinesweeperWindow(arcade.Window):
         self.input_handler = None
         #states for AI selection screen
         self.ui_state = "mode_select"
-        self.mode = "Solo"
-        self.ai_difficulty = "Easy"
+        # AI solver: solver instance, difficulty, and turn-taking state
+        self.ai = None
+        self.ai_level = "easy"
+        self.ai_mode = "Solo"      # "Solo" | "Co-op" | "Computer Solve"
+        self.ai_timer = 0.0
+        self.ai_pending = False   # interactive: the AI owes a turn
+        self.ai_reason = ""
         self.mine_count_input = ""
         self.setup_error = ""
         # Sound is on by default
@@ -119,6 +125,10 @@ class MinesweeperWindow(arcade.Window):
         """Create a new game and rebuild the input handler for it."""
         self.game = GameManager(num_mines)
         self.input_handler = InputHandler(self.game, CELL_SIZE, BOARD_LEFT, BOARD_BOTTOM, sound_enabled=self.sound_enabled)
+        # AI solver: rebind to the new game and clear per-game turn state
+        self.ai = make_ai(self.game, self.ai_level)
+        self.ai_pending = False
+        self.ai_reason = ""
 
     def confirm_mine_count(self):
         """Start a game with the typed mine count, or report that it is invalid."""
@@ -225,6 +235,11 @@ class MinesweeperWindow(arcade.Window):
 
         arcade.draw_text(status, BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE, board_top + 30,
                          status_color, 18, anchor_x="right")
+              # AI solver: difficulty, mode, controls, and the reason for the last move
+        arcade.draw_text(f"AI: {self.ai_level} [{self.ai_mode}]  (A mode, D level, S step)",
+                         BOARD_LEFT, 28, arcade.color.BLACK, 12)
+        arcade.draw_text(self.ai_reason, BOARD_LEFT, 10, arcade.color.DARK_BLUE, 12)
+
 
     def draw_setup(self):
         """Draw the mine count selection screen."""
@@ -245,7 +260,7 @@ class MinesweeperWindow(arcade.Window):
         arcade.draw_text("Select Game Mode", WINDOW_WIDTH / 2, 430, arcade.color.BLACK, 20, anchor_x="center")
 
         for label, left, bottom, width, height in MODE_OPTIONS:
-            selected = label == self.mode
+            selected = label == self.ai_mode
             #highlight selected feature in dark blue, unselected features in light gray, with white text for selected and black text for unselected
             if selected:
                 color = arcade.color.DARK_BLUE 
@@ -256,14 +271,14 @@ class MinesweeperWindow(arcade.Window):
             #draw the button and text for the button
             arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, color)
             arcade.draw_text(label, left + width / 2, bottom + height / 2, text_color, 16, anchor_x="center", anchor_y="center")
-            #this screen will create the self.mode variable that will be used to determine the game mode when the player continues to the next screen
+            #this screen will create the self.ai_mode variable that will be used to determine the game mode when the player continues to the next screen
        
         #draw computer difficulty section
         arcade.draw_text("Computer Difficulty", WINDOW_WIDTH / 2, 285, arcade.color.BLACK, 20,
                          anchor_x="center")
         #draw corresponding buttons, highlight selected button in dark blue
         for label, left, bottom, width, height in DIFFICULTY_OPTIONS:
-            selected = label == self.ai_difficulty
+            selected = label == self.ai_level
             if selected:
                 color = arcade.color.DARK_BLUE 
                 text_color = arcade.color.WHITE
@@ -272,7 +287,7 @@ class MinesweeperWindow(arcade.Window):
                 color = arcade.color.LIGHT_GRAY
             arcade.draw_lbwh_rectangle_filled(left, bottom, width, height, color)
             arcade.draw_text(label, left + width / 2, bottom + height / 2, text_color, 16, anchor_x="center", anchor_y="center")
-            #this will create the self.ai_difficulty variable that will be used to determine the computer difficulty when the player continues to the next screen
+            #this will create the self.ai_level variable that will be used to determine the computer difficulty when the player continues to the next screen
 
         #draw continue button to move on to next page
         left, bottom, width, height = CONTINUE_BUTTON
@@ -300,6 +315,42 @@ class MinesweeperWindow(arcade.Window):
         elif key == arcade.key.R:
             # R starts a new game with the same mine count
             self.start_game(self.game.num_mines)
+          # AI solver: D cycles difficulty, A cycles mode, S takes one turn
+        elif key == arcade.key.D:
+            order = ["easy", "medium", "hard"]
+            self.ai_level = order[(order.index(self.ai_level) + 1) % len(order)]
+            self.ai = make_ai(self.game, self.ai_level)  # rebind, same board
+        elif key == arcade.key.A:
+            order = ["off", "interactive", "auto"]
+            self.ai_mode = order[(order.index(self.ai_mode) + 1) % len(order)]
+            self.ai_timer = 0.0
+        elif key == arcade.key.S:
+            self._take_ai_turn()
+
+      # AI solver: play a single AI turn and record its justification
+    def _take_ai_turn(self):
+        """Play one AI move and record why it was made."""
+        if self.game is None or self.game.is_won or self.game.is_lost:
+            return
+        move = self.ai.step()
+        self.ai_reason = move.reason if move else "no moves available"
+
+    # AI solver: arcade calls this every frame; used to pace automatic solving
+    def on_update(self, delta_time):
+        """Pace AI turns so the moves are watchable."""
+        if self.game is None or self.game.is_won or self.game.is_lost:
+            return
+        if self.ai_mode == "Computer Solve":
+            self.ai_timer += delta_time
+            if self.ai_timer >= 0.25:
+                self.ai_timer = 0.0
+                self._take_ai_turn()
+        elif self.ai_mode == "Co-op" and self.ai_pending:
+            self.ai_timer += delta_time
+            if self.ai_timer >= 0.35:
+                self.ai_timer = 0.0
+                self.ai_pending = False
+                self._take_ai_turn()
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the input handler."""
@@ -313,12 +364,12 @@ class MinesweeperWindow(arcade.Window):
                 for label, left, bottom, width, height in MODE_OPTIONS:
                     #this formula gets the label of the place you clicked. If there isn't a button there, it won't do anything. If there is a button, it will update the selected mode accordingly
                     if left <= x <= left + width and bottom <= y <= bottom + height:
-                        self.mode = label
+                        self.ai_mode = label
                         return
                 for label, left, bottom, width, height in DIFFICULTY_OPTIONS:
                     #same formula as above, but for the difficulty selection buttons
                     if left <= x <= left + width and bottom <= y <= bottom + height:
-                        self.ai_difficulty = label
+                        self.ai_level = label
                         return
                 #same formula as above, but for the continue button. If you click it, it will move to the mine setup screen
                 left, bottom, width, height = CONTINUE_BUTTON
@@ -331,6 +382,11 @@ class MinesweeperWindow(arcade.Window):
             return
 
         self.input_handler.handle_click(x, y, button)
+
+        # AI solver: in interactive mode a left click hands the turn to the AI
+        if self.ai_mode == "interactive" and button == arcade.MOUSE_BUTTON_LEFT:
+            self.ai_pending = True
+            self.ai_timer = 0.0
 
 
 def main():
