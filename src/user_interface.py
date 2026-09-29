@@ -66,6 +66,7 @@ import arcade
 from game_logic import GameManager
 import board_manager
 from input_handler import InputHandler
+from ai_solver import make_ai  # AI solver: factory for the Easy/Medium/Hard solvers
 
 
 CELL_SIZE = 50
