@@ -121,6 +121,14 @@ class MinesweeperWindow(arcade.Window):
         # Load Arcade's built-in speaker icon
         self.sound_icon = arcade.load_texture(":resources:/onscreen_controls/flat_dark/sound_on.png")
 
+        # AI solver: solver instance, difficulty, and turn-taking state
+        self.ai = None
+        self.ai_level = "easy"
+        self.ai_mode = "off"      # "off" | "interactive" | "auto"
+        self.ai_timer = 0.0
+        self.ai_pending = False   # interactive: the AI owes a turn
+        self.ai_reason = ""
+
     def start_game(self, num_mines):
         """Create a new game and rebuild the input handler for it."""
         self.game = GameManager(num_mines)
