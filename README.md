@@ -4,6 +4,8 @@ A desktop Minesweeper game written in Python with the [Arcade](https://api.arcad
 
 ## Features
 
+- Start screen for selecting Solo, Co-op, or Computer Solve mode and an Easy, Medium, or Hard computer difficulty
+- Computer difficulty is currently a saved selection only; computer-play behavior is not implemented yet
 - 10x10 board with a player-selected mine count (10-20)
 - Safe first click: mines are never placed on the first cell you reveal or its neighbors, so the first click always opens up some of the board
 - Automatic clearing: revealing a cell with no adjacent mines uncovers its neighbors, and so on outward
@@ -40,18 +42,21 @@ python3 src/user_interface.py
 
 ## How to Play
 
-1. **Choose a mine count.** On the start screen, type a number from 10 to 20 and press `Enter`. Pressing `Enter` with nothing typed uses the default of 10. `Backspace` edits your entry.
-2. **Reveal cells** with a left click. A number shows how many of the up to eight surrounding cells contain mines.
-3. **Flag suspected mines** with a right click. Right-click a flag again to remove it. Flagged cells can't be revealed until the flag is removed.
-4. **Win** by uncovering every cell that does not contain a mine. **Lose** by uncovering a mine.
-5. Press `R` at any time to start a new game with the same mine count.
+1. **Choose a game mode.** Select Solo, Co-op, or Computer Solve on the first screen. Select Easy, Medium, or Hard for computer difficulty, then click Continue or press `Enter`. 
+2. **Choose a mine count.** Type a number from 10 to 20 and press `Enter`. Pressing `Enter` with nothing typed uses the default of 10. `Backspace` edits your entry.
+3. **Reveal cells** with a left click. A number shows how many of the up to eight surrounding cells contain mines.
+4. **Flag suspected mines** with a right click. Right-click a flag again to remove it. Flagged cells can't be revealed until the flag is removed.
+5. **Win** by uncovering every cell that does not contain a mine. **Lose** by uncovering a mine.
+6. Press `R` at any time to start a new game with the same mine count.
 
 | Input | Action |
 | --- | --- |
 | Left click | Reveal a cell |
 | Right click | Place or remove a flag |
 | `R` | Restart with the same mine count |
-| `0`-`9`, `Backspace`, `Enter` | Enter the mine count on the start screen |
+| Click a mode or difficulty | Select game mode or computer difficulty |
+| Click Continue or `Enter` | Advance from mode selection to mine-count setup |
+| `0`-`9`, `Backspace`, `Enter` | Enter the mine count on the setup screen |
 
 Clicks are ignored once the game has been won or lost.
 
@@ -70,16 +75,17 @@ system-diagrams/       # Diagrams detailing system schematics
 
 ### Architecture
 
-The code is split into four components with a one-way flow of control:
+The code is split into four components with a one-way flow of control. The player first selects a mode and computer difficulty in the UI, then enters the mine count before gameplay begins:
 
 ```
-Mouse click -> InputHandler -> GameManager -> BoardManager -> MinesweeperWindow (draws the board)
+Mode/difficulty selection -> mine-count setup -> MinesweeperWindow starts the game
+Gameplay mouse click -> InputHandler -> GameManager -> BoardManager -> MinesweeperWindow draws the board
 ```
 
 - **`BoardManager`** owns the grid. Each `Cell` tracks whether it is covered, flagged, and a mine. It also provides `neighbors()` and `adjacent_mines()` helpers. It contains no game rules.
 - **`GameManager`** owns the rules: it places mines after the first click, handles reveal (including the recursive clear) and flagging, and tracks `is_won`, `is_lost`, and the remaining-mine count.
 - **`InputHandler`** translates window coordinates into a row and column and calls the matching `GameManager` method.
-- **`MinesweeperWindow`** draws the setup screen and the board from the current game state, and forwards mouse and keyboard events.
+- **`MinesweeperWindow`** stores the selected mode, computer difficulty, and current UI state; it draws the mode-selection and mine-count screens and the board, and handles mouse and keyboard events. The mode and difficulty are not yet connected to different gameplay behavior.
 
 The board size is set by `BOARD_SIZE` in `src/board_manager.py`. The UI layout constants (`CELL_SIZE`, `BOARD_LEFT`, and so on) are in `src/user_interface.py`. Note that `InputHandler` currently hard-codes a 10x10 bounds check, so changing the board size requires updating it as well.
 
@@ -93,7 +99,7 @@ flowchart TB
 
     subgraph APP[" Minesweeper application "]
       direction TB
-      UI["«component»<br/><b>MinesweeperWindow</b><br/><i>user_interface.py</i><br/>presentation"]
+      UI["«component»<br/><b>MinesweeperWindow</b><br/><i>user_interface.py</i><br/>mode/difficulty selection<br/>presentation"]
       IH["«component»<br/><b>InputHandler</b><br/><i>input_handler.py</i><br/>input translation"]
       GL["«component»<br/><b>GameManager</b><br/><i>game_logic.py</i><br/>rules"]
       BM["«component»<br/><b>BoardManager + Cell</b><br/><i>board_manager.py</i><br/>state store"]
@@ -129,6 +135,7 @@ flowchart LR
     KP["Key press<br/><i>0-9, BACKSPACE<br/>ENTER, R</i>"]
 
     XL["Coordinate translation<br/>pixels to row, col<br/>plus bounds rejection"]
+    MS["Mode / AI selection<br/>Solo, Co-op, Computer Solve<br/>difficulty: Easy, Medium, Hard<br/>Continue or Enter"]
     SES["Session control<br/>mine count entry<br/>validate 10 to 20<br/>construct GameManager"]
     RUL["Rule evaluation<br/>place mines, reveal cascade<br/>flag accounting, win/loss test"]
 
@@ -139,7 +146,10 @@ flowchart LR
     SCR["Window<br/>600 x 650 px"]
 
     P --> MP --> XL --> RUL
-    P --> KP --> SES
+    MP --> MS
+    P --> KP --> MS
+    KP --> SES
+    MS -->|"selected mode and AI level"| SES
     SES -->|"fresh board and counters"| BS
     SES --> GS
     RUL -->|"writes covered, flagged, is_mine"| BS
@@ -151,7 +161,7 @@ flowchart LR
     classDef proc fill:#eef2f9,stroke:#4a6fa5,stroke-width:1.4px,color:#161a21
     classDef store fill:#fdf4e3,stroke:#b58b3a,stroke-width:1.4px,color:#4a3a18
     classDef io fill:#f2f3f5,stroke:#9aa3b0,stroke-width:1.2px,color:#3d4652
-    class XL,SES,RUL,DR proc
+    class XL,MS,SES,RUL,DR proc
     class BS,GS store
     class MP,KP,SCR,P io
 ```
@@ -211,10 +221,14 @@ classDiagram
     class MinesweeperWindow {
       +GameManager game
       +InputHandler input_handler
+      +str ui_state
+      +str mode
+      +str ai_difficulty
       +str mine_count_input
       +str setup_error
       +start_game(num_mines) None
       +confirm_mine_count() None
+      +draw_mode_select() None
       +draw_setup() None
       +on_draw() None
       +on_key_press(key, modifiers) None
@@ -246,6 +260,17 @@ classDiagram
 | Carter Steenhard | Game Logic / UI Developer |
 | Blake Pennel | Lead UI Developer |
 | Kyler Russell | General Developer and Code Reviewer |
+
+## Group 5 Team Project 2
+
+| Member | Role |
+| --- | --- |
+| John Vitha | UI Devlopment |
+| Bill Grimsley | Documentation |
+| Felix Balandran | Feature Additions |
+| Abdulaziz Arab | AI Logic Developer |
+| Jamareon Davis | AI Logic Developer |
+| Riley Backus | AI Logic Developer |
 
 ## AI Usage
 
