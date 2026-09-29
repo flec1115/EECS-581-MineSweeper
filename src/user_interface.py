@@ -329,7 +329,7 @@ class MinesweeperWindow(arcade.Window):
             self.ai_level = order[(order.index(self.ai_level) + 1) % len(order)]
             self.ai = make_ai(self.game, self.ai_level)  # rebind, same board
         elif key == arcade.key.A:
-            order = ["off", "interactive", "auto"]
+            order = ["Solo", "Co-op", "Computer Solve"]
             self.ai_mode = order[(order.index(self.ai_mode) + 1) % len(order)]
             self.ai_timer = 0.0
         elif key == arcade.key.S:
@@ -379,7 +379,7 @@ class MinesweeperWindow(arcade.Window):
                     if left <= x <= left + width and bottom <= y <= bottom + height:
                         self.ai_level = label
                         return
-                #same formula as above, but for the continue button. If you click it, it will move to the mine setup screen
+                #same formula as above, but for the continue button. If you click it, it will move to the m setup screen
                 left, bottom, width, height = CONTINUE_BUTTON
                 if left <= x <= left + width and bottom <= y <= bottom + height:
                     self.ui_state = "mine_setup"
@@ -392,7 +392,7 @@ class MinesweeperWindow(arcade.Window):
         self.input_handler.handle_click(x, y, button)
 
         # AI solver: in interactive mode a left click hands the turn to the AI
-        if self.ai_mode == "interactive" and button == arcade.MOUSE_BUTTON_LEFT:
+        if self.ai_mode == "Co-op" and button == arcade.MOUSE_BUTTON_LEFT:
             self.ai_pending = True
             self.ai_timer = 0.0
 
