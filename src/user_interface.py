@@ -74,8 +74,11 @@ CELL_SIZE = 50
 BOARD_LEFT = 50
 BOARD_BOTTOM = 50
 
-WINDOW_WIDTH = 600
+WINDOW_WIDTH = 840
 WINDOW_HEIGHT = 650
+
+PANEL_LEFT = 620
+PANEL_WIDTH = 200
 
 COLUMN_LABELS = "ABCDEFGHIJ"
 
@@ -85,6 +88,34 @@ NUMBER_COLORS = {1: arcade.color.BLUE, 2: arcade.color.GREEN, 3: arcade.color.RE
                  7: arcade.color.BLACK, 8: arcade.color.GRAY}
 
 
+AI_LEVELS = ["easy", "medium", "hard"]
+AI_MODES = ["off", "interactive", "auto"]
+MODE_LABELS = {"off": "Off", "interactive": "Turn", "auto": "Auto"}
+MODE_HELP = {"off": "You play alone",
+             "interactive": "AI moves after each click",
+             "auto": "AI plays by itself"}
+
+class Button:
+    """A clickable rectangle with a label."""
+
+    def __init__(self, left, bottom, width, height, label, action, is_active=None):
+        self.left, self.bottom, self.width, self.height = left, bottom, width, height
+        self.label = label
+        self.action = action
+        self.is_active = is_active or (lambda: False)
+
+    def contains(self, x, y):
+        return (self.left <= x <= self.left + self.width and
+                self.bottom <= y <= self.bottom + self.height)
+
+    def draw(self):
+        color = arcade.color.LIGHT_BLUE if self.is_active() else arcade.color.LIGHT_GRAY
+        arcade.draw_lbwh_rectangle_filled(self.left, self.bottom, self.width, self.height, color)
+        arcade.draw_lbwh_rectangle_outline(self.left, self.bottom, self.width, self.height,
+                                           arcade.color.BLACK, 2)
+        arcade.draw_text(self.label, self.left + self.width / 2, self.bottom + self.height / 2,
+                         arcade.color.BLACK, 12, anchor_x="center", anchor_y="center")
+        
 class MinesweeperWindow(arcade.Window):
     """Simple Arcade UI for Minesweeper."""
 
@@ -104,6 +135,8 @@ class MinesweeperWindow(arcade.Window):
         self.ai_timer = 0.0
         self.ai_pending = False   # interactive: the AI owes a turn
         self.ai_reason = ""
+        self.ai_delay = 0.25
+        self.buttons = self.build_buttons()
 
     def start_game(self, num_mines):
         """Create a new game and rebuild the input handler for it."""
@@ -182,16 +215,18 @@ class MinesweeperWindow(arcade.Window):
 
         if self.game.is_lost:
             status, status_color = "Game Over: Loss", arcade.color.RED
+            arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
+            arcade.color.BLACK, 18, anchor_x="center", bold=True)
         elif self.game.is_won:
             status, status_color = "Victory", arcade.color.GREEN
+            arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
+            arcade.color.BLACK, 18, anchor_x="center", bold=True)
         else:
             status, status_color = "Playing", arcade.color.BLACK
 
         arcade.draw_text(status, BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE, board_top + 30,
                          status_color, 18, anchor_x="right")
-              # AI solver: difficulty, mode, controls, and the reason for the last move
-        arcade.draw_text(f"AI: {self.ai_level} [{self.ai_mode}]  (A mode, D level, S step)",
-                         BOARD_LEFT, 28, arcade.color.BLACK, 12)
+        self.draw_ai_panel()
         arcade.draw_text(self.ai_reason, BOARD_LEFT, 10, arcade.color.DARK_BLUE, 12)
 
 
@@ -207,7 +242,7 @@ class MinesweeperWindow(arcade.Window):
             arcade.draw_text(self.setup_error, WINDOW_WIDTH / 2, 260, arcade.color.RED, 16, anchor_x="center")
 
     def on_key_press(self, key, modifiers):
-        """Handle mine count entry, game start, and restart."""
+        """Handle mine count entry, game start, restart, and AI hotkeys."""
         if self.game is None:
             if arcade.key.KEY_0 <= key <= arcade.key.KEY_9:
                 self.mine_count_input += chr(key)
@@ -220,17 +255,52 @@ class MinesweeperWindow(arcade.Window):
         elif key == arcade.key.R:
             # R starts a new game with the same mine count
             self.start_game(self.game.num_mines)
-          # AI solver: D cycles difficulty, A cycles mode, S takes one turn
+        # AI solver: hotkeys share their logic with the panel buttons
         elif key == arcade.key.D:
-            order = ["easy", "medium", "hard"]
-            self.ai_level = order[(order.index(self.ai_level) + 1) % len(order)]
-            self.ai = make_ai(self.game, self.ai_level)  # rebind, same board
+            self.set_ai_level(AI_LEVELS[(AI_LEVELS.index(self.ai_level) + 1) % len(AI_LEVELS)])
         elif key == arcade.key.A:
-            order = ["off", "interactive", "auto"]
-            self.ai_mode = order[(order.index(self.ai_mode) + 1) % len(order)]
-            self.ai_timer = 0.0
+            self.set_ai_mode(AI_MODES[(AI_MODES.index(self.ai_mode) + 1) % len(AI_MODES)])
         elif key == arcade.key.S:
             self._take_ai_turn()
+
+    def build_buttons(self):
+        """Create the AI panel buttons."""
+        buttons = []
+        for i, mode in enumerate(AI_MODES):
+            buttons.append(Button(PANEL_LEFT + i * 69, 450, 62, 30, MODE_LABELS[mode],
+                                  lambda m=mode: self.set_ai_mode(m),
+                                  lambda m=mode: self.ai_mode == m))
+        for i, level in enumerate(AI_LEVELS):
+            buttons.append(Button(PANEL_LEFT + i * 69, 380, 62, 30, level.capitalize(),
+                                  lambda l=level: self.set_ai_level(l),
+                                  lambda l=level: self.ai_level == l))
+        buttons.append(Button(PANEL_LEFT, 310, 90, 30, "Slower", lambda: self.change_ai_delay(0.05)))
+        buttons.append(Button(PANEL_LEFT + 110, 310, 90, 30, "Faster", lambda: self.change_ai_delay(-0.05)))
+        buttons.append(Button(PANEL_LEFT, 250, PANEL_WIDTH, 30, "Step (S)", self._take_ai_turn))
+        return buttons
+
+    def set_ai_mode(self, mode):
+        self.ai_mode = mode
+        self.ai_timer = 0.0
+        self.ai_pending = False
+
+    def set_ai_level(self, level):
+        self.ai_level = level
+        if self.game is not None:
+            self.ai = make_ai(self.game, self.ai_level)  # rebind, same board
+
+    def change_ai_delay(self, amount):
+        self.ai_delay = round(min(1.0, max(0.05, self.ai_delay + amount)), 2)
+
+    def draw_ai_panel(self):
+        """Draw the AI control panel."""
+        arcade.draw_text("AI Agent", PANEL_LEFT, 520, arcade.color.BLACK, 20)
+        arcade.draw_text("Mode", PANEL_LEFT, 490, arcade.color.BLACK, 14)
+        arcade.draw_text(MODE_HELP[self.ai_mode], PANEL_LEFT, 430, arcade.color.DARK_GRAY, 11)
+        arcade.draw_text("Level", PANEL_LEFT, 420, arcade.color.BLACK, 14)
+        arcade.draw_text(f"Delay: {self.ai_delay:.2f}s", PANEL_LEFT, 350, arcade.color.BLACK, 14)
+        for button in self.buttons:
+            button.draw()
 
       # AI solver: play a single AI turn and record its justification
     def _take_ai_turn(self):
@@ -247,19 +317,29 @@ class MinesweeperWindow(arcade.Window):
             return
         if self.ai_mode == "auto":
             self.ai_timer += delta_time
-            if self.ai_timer >= 0.25:
+            if self.ai_timer >= self.ai_delay:
                 self.ai_timer = 0.0
                 self._take_ai_turn()
         elif self.ai_mode == "interactive" and self.ai_pending:
             self.ai_timer += delta_time
-            if self.ai_timer >= 0.35:
+            if self.ai_timer >= self.ai_delay:
                 self.ai_timer = 0.0
                 self.ai_pending = False
                 self._take_ai_turn()
 
     def on_mouse_press(self, x, y, button, modifiers):
-        """Send mouse input to the input handler."""
-        if self.game is None or self.game.is_lost or self.game.is_won:
+        """Send mouse input to the AI panel or the input handler."""
+        if self.game is None:
+            return
+
+        # AI panel buttons work at any time, including after a win or loss
+        for ui_button in self.buttons:
+            if ui_button.contains(x, y):
+                ui_button.action()
+                return
+
+        # Board clicks are only allowed while the game is still running
+        if self.game.is_lost or self.game.is_won:
             return
 
         self.input_handler.handle_click(x, y, button)
