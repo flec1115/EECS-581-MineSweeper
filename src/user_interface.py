@@ -79,9 +79,9 @@ BOARD_BOTTOM = 50
 WINDOW_WIDTH = 840
 WINDOW_HEIGHT = 650
 
-SOUND_X = 522
-SOUND_Y = 575
 SOUND_SIZE = 48
+SOUND_X = WINDOW_WIDTH - SOUND_SIZE - 12
+SOUND_Y = 12
 
 PANEL_LEFT = 620
 PANEL_WIDTH = 200
@@ -202,12 +202,19 @@ class MinesweeperWindow(arcade.Window):
                 4
             )
 
+    def toggle_sound(self):
+        """Toggle sound effects on or off."""
+        self.sound_enabled = not self.sound_enabled
+        if self.input_handler is not None:
+            self.input_handler.sound_enabled = self.sound_enabled
+
     def on_draw(self):
         """Draw the setup screen or the current board."""
         self.clear(arcade.color.WHITE)
 
         if self.game is None:
             self.draw_setup()
+            self.draw_sound_button()
             return
 
         board_top = BOARD_BOTTOM + board_manager.BOARD_SIZE * CELL_SIZE
@@ -274,6 +281,7 @@ class MinesweeperWindow(arcade.Window):
                          status_color, 18, anchor_x="right")
         self.draw_ai_panel()
         arcade.draw_text(self.ai_reason, BOARD_LEFT, 10, arcade.color.DARK_BLUE, 12)
+        self.draw_sound_button()
 
 
     def draw_setup(self):
@@ -381,6 +389,12 @@ class MinesweeperWindow(arcade.Window):
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the AI panel or the input handler."""
+        if (button == arcade.MOUSE_BUTTON_LEFT and
+                SOUND_X <= x <= SOUND_X + SOUND_SIZE and
+                SOUND_Y <= y <= SOUND_Y + SOUND_SIZE):
+            self.toggle_sound()
+            return
+
         if self.game is None:
             return
 
