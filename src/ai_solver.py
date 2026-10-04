@@ -9,6 +9,9 @@ Class Name: HardAI - Extension point for the Medium rules plus the 1-2-1 pattern
 
 Inputs:  A GameManager instance (game_logic.py)
 Outputs: Move records describing each turn, applied through GameManager's public API
+
+Created on 2026-09-29
+Author: Jamareon Davis
 """
 
 import random

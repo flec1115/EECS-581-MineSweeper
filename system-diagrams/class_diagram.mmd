@@ -42,24 +42,80 @@ classDiagram
       +int cell_size
       +int board_left
       +int board_bottom
+      +bool sound_enabled
+      +Sound flag_sound
+      +Sound bomb_sound
+      +Sound blip_sound
+      +Sound cheer_sound
       +handle_click(x, y, button) None
+    }
+
+    class Button {
+      +float left
+      +float bottom
+      +float width
+      +float height
+      +str label
+      +callable action
+      +callable is_active
+      +contains(x, y) bool
+      +draw() None
     }
 
     class MinesweeperWindow {
       +GameManager game
       +InputHandler input_handler
+      +ai
+      +List~Button~ buttons
       +str ui_state
-      +str mode
-      +str ai_difficulty
+      +str ai_level
+      +str ai_mode
+      +float ai_timer
+      +bool ai_pending
+      +str ai_reason
+      +float ai_delay
       +str mine_count_input
       +str setup_error
+      +bool sound_enabled
       +start_game(num_mines) None
       +confirm_mine_count() None
-      +draw_mode_select() None
+      +draw_sound_button() None
+      +toggle_sound() None
       +draw_setup() None
+      +draw_ai_panel() None
       +on_draw() None
+      +on_update(delta_time) None
       +on_key_press(key, modifiers) None
       +on_mouse_press(x, y, button, modifiers) None
+      +set_ai_mode(mode) None
+      +set_ai_level(level) None
+      +change_ai_delay(amount) None
+      +_take_ai_turn() None
+    }
+
+    class EasyAI {
+      +GameManager game
+      +Random rng
+      +List~Move~ _queue
+      +next_move() Move
+      +apply(move) None
+      +step() Move
+      +solve(max_steps) str
+    }
+
+    class MediumAI {
+      +_cell_view(row, col) tuple
+      +_deduce() List~Move~
+    }
+
+    class HardAI {
+    }
+
+    class Move {
+      +str action
+      +int row
+      +int col
+      +str reason
     }
 
     class arcade_Window {
@@ -70,7 +126,20 @@ classDiagram
     GameManager "1" *-- "1" BoardManager : board
     MinesweeperWindow "1" *-- "0..1" GameManager : game
     MinesweeperWindow "1" *-- "0..1" InputHandler : input_handler
+    MinesweeperWindow "1" o-- "0..1" EasyAI : selected ai
+    MinesweeperWindow "1" o-- "0..1" MediumAI : selected ai
+    MinesweeperWindow "1" o-- "0..1" HardAI : selected ai
+    MinesweeperWindow "1" *-- "0..*" Button : buttons
     InputHandler "1" --> "1" GameManager : game
+    MinesweeperWindow ..> InputHandler : synchronizes sound_enabled
+    EasyAI "1" --> "1" GameManager : game
+    EasyAI ..> Move : creates and applies
+    MediumAI --|> EasyAI
+    HardAI --|> MediumAI
     MinesweeperWindow --|> arcade_Window
+    Button ..> MinesweeperWindow : invokes callbacks
     InputHandler ..> BoardManager : reads via game.board
     MinesweeperWindow ..> BoardManager : reads via game.board
+    MinesweeperWindow ..> EasyAI : creates via make_ai()
+    MinesweeperWindow ..> MediumAI : creates via make_ai()
+    MinesweeperWindow ..> HardAI : creates via make_ai()

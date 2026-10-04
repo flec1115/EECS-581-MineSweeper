@@ -56,10 +56,18 @@ The challenges or limitations you faced while using AI: Validating logical execu
 
 Update 9/16/2026 - Carter Steenhard and DeepSeek V4.1 Flash:
 A description of how and why AI was used: DeepSeek V4.1 Flash used to implement the mine count selection, labels, numbers, status, flag counter, reveal mines on loss, and restart update
-                                            ChatGPT GPT - 5.6 Luna Used to inplement UI for mode selection and difficulty selection screens. It was used a reference for an easy way to set up buttons and their locations on the screen. Further code related was created manually
 How you validated and revised the AI output: Proofreading, logic tests for the board and game logic, and a scripted window test covering setup, revealing, flagging, loss, restart, and win
-    UI testing was done when implementing the mode selection and difficulty selection screens. The buttons were tested to ensure they were clickable and that the correct mode and difficulty were selected.
 The challenges or limitations you faced while using AI: Keeping the diff minimal while matching the existing code style and validating the arcade API calls against the installed library version
+
+Update 9/26/2026 - Felix Balandran
+Added sound button to gameplay screen
+
+Update 9/29/2026 = Jamareon Davis
+Added logic for AI agent to play the game
+
+Update 9/30/2026 - Riley Backus
+Added UI for handling the AI agent
+
 Attributions: 
 Authors: Kyler Russell, Blake Pennel, Carter Steenhard
 Creation Date: 9/15/2026

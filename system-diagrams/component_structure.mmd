@@ -1,27 +1,33 @@
 flowchart TB
-    ARC["«library»<br/><b>Arcade 3.3.3</b><br/>window, event loop, drawing"]
+    ARC["«library»<br/><b>Arcade 3.3.3</b><br/>window, event loop, drawing, audio"]
 
     subgraph APP[" Minesweeper application "]
       direction TB
-      UI["«component»<br/><b>MinesweeperWindow</b><br/><i>user_interface.py</i><br/>presentation"]
-      IH["«component»<br/><b>InputHandler</b><br/><i>input_handler.py</i><br/>input translation"]
-      GL["«component»<br/><b>GameManager</b><br/><i>game_logic.py</i><br/>rules"]
-      BM["«component»<br/><b>BoardManager + Cell</b><br/><i>board_manager.py</i><br/>state store"]
+      UI["«component»<br/><b>MinesweeperWindow + Button</b><br/><i>user_interface.py</i><br/>setup, board, AI and sound controls"]
+      IH["«component»<br/><b>InputHandler</b><br/><i>input_handler.py</i><br/>board input and sound effects"]
+      AI["«component»<br/><b>EasyAI / MediumAI / HardAI</b><br/><i>ai_solver.py</i><br/>select and apply moves"]
+      GL["«component»<br/><b>GameManager</b><br/><i>game_logic.py</i><br/>game rules"]
+      BM["«component»<br/><b>BoardManager + Cell</b><br/><i>board_manager.py</i><br/>board state"]
     end
 
-    RND["«library»<br/><b>random</b><br/>mine sampling"]
+    RND["«library»<br/><b>random</b><br/>mine sampling and AI fallback"]
+    SFX["«assets»<br/><b>sfx/</b><br/>flag, bomb, blip, cheer"]
 
-    ARC -->|"on_mouse_press<br/>on_key_press"| UI
-    UI -->|"handle_click x, y, button"| IH
-    IH -->|"populate_mines, reveal_cell<br/>flag_cell, unflag_cell"| GL
-    GL -->|"set_mines, uncover_cell<br/>set_flagged, remove_flag, clear_flags"| BM
+    ARC -->|"window events"| UI
+    UI -->|"board clicks"| IH
+    UI -.->|"syncs mute state"| IH
+    UI -->|"requests AI moves"| AI
+    UI -.->|"reads game status"| GL
+    UI -.->|"renders board cells"| BM
+    IH -->|"reveal and flag actions"| GL
+    IH -->|"plays enabled effects"| SFX
+    AI -->|"applies moves"| GL
+    AI -.->|"random fallback"| RND
+    GL -->|"updates cells"| BM
     GL -.->|"random.sample"| RND
-    UI -.->|"reads: is_covered, is_flagged<br/>is_mine, adjacent_mines"| BM
-    IH -.->|"reads: is_covered, is_flagged"| BM
-    UI -.->|"reads: mine_count, is_won, is_lost"| GL
-    UI -->|"arcade.draw_* per frame"| ARC
+    UI -->|"Arcade drawing API"| ARC
 
     classDef comp fill:#eef2f9,stroke:#4a6fa5,stroke-width:1.4px,color:#161a21
     classDef lib fill:#f2f3f5,stroke:#9aa3b0,stroke-width:1.2px,color:#3d4652
-    class UI,IH,GL,BM comp
-    class ARC,RND lib
+    class UI,IH,AI,GL,BM comp
+    class ARC,RND,SFX lib

@@ -2,35 +2,40 @@ flowchart LR
     P(("Player"))
 
     MP["Mouse press<br/><i>x, y, button</i>"]
-    KP["Key press<br/><i>0-9, BACKSPACE<br/>ENTER, R</i>"]
+    KP["Key press<br/><i>Enter, 0-9, Backspace<br/>R, A, D, S</i>"]
 
-    XL["Coordinate translation<br/>pixels to row, col<br/>plus bounds rejection"]
-    MS["Mode / AI selection<br/>Solo, Co-op, Computer Solve<br/>difficulty: Easy, Medium, Hard<br/>Continue or Enter"]
-    SES["Session control<br/>mine count entry<br/>validate 10 to 20<br/>construct GameManager"]
-    RUL["Rule evaluation<br/>place mines, reveal cascade<br/>flag accounting, win/loss test"]
+    UI["MinesweeperWindow<br/>routes UI events"]
+    SES["Mine-count entry<br/>validate 10 to 20"]
+    IH["InputHandler<br/>translate pixels to row/col<br/>reject out-of-board clicks"]
+    AI["AI solver<br/>select Easy, Medium, or Hard move"]
+    RUL["GameManager<br/>mine placement, reveal cascade,<br/>flagging, win/loss"]
 
     BS[("Board state<br/><b>10 x 10 Cell grid</b><br/>covered, flagged, is_mine")]
-    GS[("Game state<br/><b>GameManager scalars</b><br/>is_won, is_lost, mine_count<br/>flags, cells_to_clear")]
-
+    GS[("Game state<br/><b>GameManager</b><br/>is_won, is_lost, mine_count,<br/>flags, cells_to_clear")]
+    SFX["Sound effects<br/>flag, bomb, blip, cheer<br/>played only when enabled"]
     DR["Render pass<br/><b>on_draw</b> per frame"]
-    SCR["Window<br/>600 x 650 px"]
+    SCR["Window<br/>840 x 650 px"]
 
-    P --> MP --> XL --> RUL
-    MP --> MS
-    P --> KP --> MS
-    KP --> SES
-    MS -->|"selected mode and AI level"| SES
-    SES -->|"fresh board and counters"| BS
-    SES --> GS
-    RUL -->|"writes covered, flagged, is_mine"| BS
+    P --> MP --> UI
+    P --> KP --> UI
+    UI -->|"count entry"| SES
+    SES -->|"start_game"| GS
+    SES -->|"new game"| BS
+    UI -->|"board click"| IH
+    IH -->|"reveal or flag action"| RUL
+    UI -->|"mode, difficulty, delay, step"| AI
+    AI -->|"apply selected move"| RUL
+    IH -.->|"if sound is enabled"| SFX
+    UI -->|"syncs mute state"| IH
+    RUL -->|"updates covered, flagged, is_mine"| BS
     RUL -->|"updates counters and status"| GS
-    BS -->|"is_covered, is_flagged, is_mine<br/>adjacent_mines"| DR
-    GS -->|"mine_count, is_won, is_lost"| DR
+    BS -->|"cell state and adjacent counts"| DR
+    GS -->|"mine count and game result"| DR
     DR --> SCR --> P
 
     classDef proc fill:#eef2f9,stroke:#4a6fa5,stroke-width:1.4px,color:#161a21
     classDef store fill:#fdf4e3,stroke:#b58b3a,stroke-width:1.4px,color:#4a3a18
     classDef io fill:#f2f3f5,stroke:#9aa3b0,stroke-width:1.2px,color:#3d4652
-    class XL,MS,SES,RUL,DR proc
-    class BS,GS store
+    class UI,SES,IH,AI,RUL,DR proc
+    class BS,GS,SFX store
     class MP,KP,SCR,P io
