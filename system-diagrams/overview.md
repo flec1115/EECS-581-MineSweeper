@@ -13,7 +13,7 @@ flowchart TB
 
     subgraph APP[" Minesweeper application "]
       direction TB
-      UI["«component»<br/><b>MinesweeperWindow</b><br/><i>user_interface.py</i><br/>presentation"]
+      UI["«component»<br/><b>MinesweeperWindow</b><br/><i>user_interface.py</i><br/>mode/difficulty selection<br/>presentation"]
       IH["«component»<br/><b>InputHandler</b><br/><i>input_handler.py</i><br/>input translation"]
       GL["«component»<br/><b>GameManager</b><br/><i>game_logic.py</i><br/>rules"]
       BM["«component»<br/><b>BoardManager + Cell</b><br/><i>board_manager.py</i><br/>state store"]
@@ -49,6 +49,7 @@ flowchart LR
     KP["Key press<br/><i>0-9, BACKSPACE<br/>ENTER, R</i>"]
 
     XL["Coordinate translation<br/>pixels to row, col<br/>plus bounds rejection"]
+    MS["Mode / AI selection<br/>Solo, Co-op, Computer Solve<br/>difficulty: Easy, Medium, Hard<br/>Continue or Enter"]
     SES["Session control<br/>mine count entry<br/>validate 10 to 20<br/>construct GameManager"]
     RUL["Rule evaluation<br/>place mines, reveal cascade<br/>flag accounting, win/loss test"]
 
@@ -59,7 +60,10 @@ flowchart LR
     SCR["Window<br/>600 x 650 px"]
 
     P --> MP --> XL --> RUL
-    P --> KP --> SES
+    MP --> MS
+    P --> KP --> MS
+    KP --> SES
+    MS -->|"selected mode and AI level"| SES
     SES -->|"fresh board and counters"| BS
     SES --> GS
     RUL -->|"writes covered, flagged, is_mine"| BS
@@ -71,7 +75,7 @@ flowchart LR
     classDef proc fill:#eef2f9,stroke:#4a6fa5,stroke-width:1.4px,color:#161a21
     classDef store fill:#fdf4e3,stroke:#b58b3a,stroke-width:1.4px,color:#4a3a18
     classDef io fill:#f2f3f5,stroke:#9aa3b0,stroke-width:1.2px,color:#3d4652
-    class XL,SES,RUL,DR proc
+    class XL,MS,SES,RUL,DR proc
     class BS,GS store
     class MP,KP,SCR,P io
 ```
@@ -131,10 +135,14 @@ classDiagram
     class MinesweeperWindow {
       +GameManager game
       +InputHandler input_handler
+      +str ui_state
+      +str mode
+      +str ai_difficulty
       +str mine_count_input
       +str setup_error
       +start_game(num_mines) None
       +confirm_mine_count() None
+      +draw_mode_select() None
       +draw_setup() None
       +on_draw() None
       +on_key_press(key, modifiers) None

@@ -48,10 +48,14 @@ classDiagram
     class MinesweeperWindow {
       +GameManager game
       +InputHandler input_handler
+      +str ui_state
+      +str mode
+      +str ai_difficulty
       +str mine_count_input
       +str setup_error
       +start_game(num_mines) None
       +confirm_mine_count() None
+      +draw_mode_select() None
       +draw_setup() None
       +on_draw() None
       +on_key_press(key, modifiers) None

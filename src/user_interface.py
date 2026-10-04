@@ -11,7 +11,7 @@ reveal all mines on loss, and R to restart
 
 Inputs: Board state
 Outputs: Game window
-External Sources: ChatGPT 5.6 Sol High Thinking, DeepSeek V4.1 Flash
+External Sources: ChatGPT 5.6 Sol High Thinking, DeepSeek V4.1 Flash, ChatGPT 5.6 Luna
 LLM AND GENERATIVE AI TOOLS:
 A description of how and why AI was used: ChatGPT used for drafting and revising code with new, unfamiliar UI library
 The specific prompts you entered: 
@@ -56,7 +56,9 @@ The challenges or limitations you faced while using AI: Validating logical execu
 
 Update 9/16/2026 - Carter Steenhard and DeepSeek V4.1 Flash:
 A description of how and why AI was used: DeepSeek V4.1 Flash used to implement the mine count selection, labels, numbers, status, flag counter, reveal mines on loss, and restart update
+                                            ChatGPT GPT - 5.6 Luna Used to inplement UI for mode selection and difficulty selection screens. It was used a reference for an easy way to set up buttons and their locations on the screen. Further code related was created manually
 How you validated and revised the AI output: Proofreading, logic tests for the board and game logic, and a scripted window test covering setup, revealing, flagging, loss, restart, and win
+    UI testing was done when implementing the mode selection and difficulty selection screens. The buttons were tested to ensure they were clickable and that the correct mode and difficulty were selected.
 The challenges or limitations you faced while using AI: Keeping the diff minimal while matching the existing code style and validating the arcade API calls against the installed library version
 Attributions: 
 Authors: Kyler Russell, Blake Pennel, Carter Steenhard
@@ -77,10 +79,16 @@ BOARD_BOTTOM = 50
 WINDOW_WIDTH = 840
 WINDOW_HEIGHT = 650
 
+SOUND_SIZE = 48
+SOUND_X = WINDOW_WIDTH - SOUND_SIZE - 12
+SOUND_Y = 12
+
 PANEL_LEFT = 620
 PANEL_WIDTH = 200
 
 COLUMN_LABELS = "ABCDEFGHIJ"
+#configs for setting buttons for the mode selection and difficulty selection screens
+#formatting used chatGPT GPT-5.6 Luna for reference of an easy way to set up buttons and their locations on the screen
 
 # Standard Minesweeper colors for the adjacent mine counts
 NUMBER_COLORS = {1: arcade.color.BLUE, 2: arcade.color.GREEN, 3: arcade.color.RED,
@@ -125,8 +133,21 @@ class MinesweeperWindow(arcade.Window):
         # The game is created once the player confirms a mine count
         self.game = None
         self.input_handler = None
+        #states for AI selection screen
+        self.ui_state = "mode_select"
+        # AI solver: solver instance, difficulty, and turn-taking state
+        self.ai = None
+        self.ai_level = "easy"
+        self.ai_mode = "Solo"      # "Solo" | "Co-op" | "Computer Solve"
+        self.ai_timer = 0.0
+        self.ai_pending = False   # interactive: the AI owes a turn
+        self.ai_reason = ""
         self.mine_count_input = ""
         self.setup_error = ""
+        # Sound is on by default
+        self.sound_enabled = True
+        # Load Arcade's built-in speaker icon
+        self.sound_icon = arcade.load_texture(":resources:/onscreen_controls/flat_dark/sound_on.png")
 
         # AI solver: solver instance, difficulty, and turn-taking state
         self.ai = None
@@ -141,8 +162,8 @@ class MinesweeperWindow(arcade.Window):
     def start_game(self, num_mines):
         """Create a new game and rebuild the input handler for it."""
         self.game = GameManager(num_mines)
-        self.input_handler = InputHandler(self.game, CELL_SIZE, BOARD_LEFT, BOARD_BOTTOM)
-      # AI solver: rebind to the new game and clear per-game turn state
+        self.input_handler = InputHandler(self.game, CELL_SIZE, BOARD_LEFT, BOARD_BOTTOM, sound_enabled=self.sound_enabled)
+        # AI solver: rebind to the new game and clear per-game turn state
         self.ai = make_ai(self.game, self.ai_level)
         self.ai_pending = False
         self.ai_reason = ""
@@ -156,12 +177,44 @@ class MinesweeperWindow(arcade.Window):
 
         self.start_game(num_mines)
 
+
+    def draw_sound_button(self):
+        """Draw the speaker icon with a red line when muted."""
+        # Draw the speaker
+        arcade.draw_texture_rect(
+            self.sound_icon,
+            arcade.LBWH(
+                SOUND_X,
+                SOUND_Y,
+                SOUND_SIZE,
+                SOUND_SIZE
+            )
+        )
+
+    # Draw a red diagonal line when muted
+        if not self.sound_enabled:
+            arcade.draw_line(
+                SOUND_X + 6,
+                SOUND_Y + 6,
+                SOUND_X + SOUND_SIZE - 6,
+                SOUND_Y + SOUND_SIZE - 6,
+                arcade.color.RED,
+                4
+            )
+
+    def toggle_sound(self):
+        """Toggle sound effects on or off."""
+        self.sound_enabled = not self.sound_enabled
+        if self.input_handler is not None:
+            self.input_handler.sound_enabled = self.sound_enabled
+
     def on_draw(self):
         """Draw the setup screen or the current board."""
         self.clear(arcade.color.WHITE)
 
         if self.game is None:
             self.draw_setup()
+            self.draw_sound_button()
             return
 
         board_top = BOARD_BOTTOM + board_manager.BOARD_SIZE * CELL_SIZE
@@ -228,6 +281,7 @@ class MinesweeperWindow(arcade.Window):
                          status_color, 18, anchor_x="right")
         self.draw_ai_panel()
         arcade.draw_text(self.ai_reason, BOARD_LEFT, 10, arcade.color.DARK_BLUE, 12)
+        self.draw_sound_button()
 
 
     def draw_setup(self):
@@ -244,6 +298,12 @@ class MinesweeperWindow(arcade.Window):
     def on_key_press(self, key, modifiers):
         """Handle mine count entry, game start, restart, and AI hotkeys."""
         if self.game is None:
+            #add config for mode selection screen.
+            if self.ui_state == "mode_select":
+                #if you hit enter, move to mine setup screen
+                if key == arcade.key.ENTER:
+                    self.ui_state = "mine_setup"
+                return
             if arcade.key.KEY_0 <= key <= arcade.key.KEY_9:
                 self.mine_count_input += chr(key)
                 self.setup_error = ""
@@ -329,6 +389,12 @@ class MinesweeperWindow(arcade.Window):
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the AI panel or the input handler."""
+        if (button == arcade.MOUSE_BUTTON_LEFT and
+                SOUND_X <= x <= SOUND_X + SOUND_SIZE and
+                SOUND_Y <= y <= SOUND_Y + SOUND_SIZE):
+            self.toggle_sound()
+            return
+
         if self.game is None:
             return
 
