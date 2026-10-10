@@ -239,7 +239,7 @@ class HardAI(MediumAI):
                         moves.append(Move("flag", front_right[0], front_right[1], "1-2-1 pattern"))
                         # Mark the respective front cells as flagged or revealed based on the 1-2-1 pattern
                             
-                        
+                    # scrubbed code   
                     '''if not ((self._is_revealed(vert, hort)
                         and self._is_revealed(vert, hort + 1) 
                         and self._is_revealed(vert, hort + 2))
