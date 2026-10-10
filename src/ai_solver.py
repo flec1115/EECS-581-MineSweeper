@@ -1,14 +1,16 @@
 """
- ai_solver.py
+ai_solver.py
 
-Class: EasyAI - Uncovers a uniformly random covered, unflagged cell
+This module defines the AI agents used to make legal MineSweeper moves.
 
-Class: MediumAI -Applies the two single-cell constraint rules, falling back to random
+The solver is layered by difficulty:
+- EasyAI: falls back to a random valid move.
+- MediumAI: applies the standard single-cell logic used in Minesweeper.
+- HardAI: extends MediumAI with additional pattern-based deductions.
 
-Class Name: HardAI - Extension point for the Medium rules plus the 1-2-1 pattern
-
-Inputs:  A GameManager instance (game_logic.py)
-Outputs: Move records describing each turn, applied through GameManager's public API
+The AI does not directly manipulate the board for its own sake; instead, it
+creates Move objects describing a legal action (reveal or flag) and then hands
+those moves to the GameManager through the public API.
 
 Created on 2026-09-29
 Author: Jamareon Davis
@@ -19,54 +21,62 @@ from collections import namedtuple
 
 import board_manager
 
-#"reveal" or "flag"
+# The Move record stores the action type and target cell, plus a human-readable
+# reason so debugging and tests can explain why the AI chose a move.
 Move = namedtuple("Move", ["action", "row", "col", "reason"])
 
 
 class EasyAI:
     """
-    Easy difficulty picka a uniformly random cell that is still covered and
-    unflagged, and uncover it, Also the base class for the other difficulties. Subclasses override
-    _deduce(); the random pick stays as the fallback when no rule fires.
+    Easy difficulty is intentionally simple: it picks a random covered, unflagged
+    cell and reveals it. This class also serves as the base behavior for all
+    other AI agents because the subclasses only override the deduction step.
+
+    The important design rule is that every move must still be legal when it is
+    applied. A hidden cell is only valid if it is covered and not flagged, which
+    prevents the AI from drifting out of sync with the board state.
     """
 
     name = "Easy"
 
     def __init__(self, game, seed=None):
+        """Store the game instance and initialize deterministic random behavior."""
         self.game = game
-        self.rng = random.Random(seed)  # seeded so test runs are reproducible
-        self._queue = []                # moves deduced but not yet played
-
-    #  board
+        self.rng = random.Random(seed)  # A seed keeps tests reproducible.
+        self._queue = []  # Moves deduced earlier but not yet consumed.
 
     def _is_revealed(self, row, col):
+        """Return True when the cell has already been revealed by the game."""
         return not self.game.board.is_covered(row, col)
 
     def _is_unknown(self, row, col):
-        """Covered and unflagged: a cell the AI is still allowed to act on.  GameManager.flag_cell does not prive  arguments,  every move
-        this solver gives must satisfy this predicate or the flag counter and
-        mine_count will drift out of sync with the board.
+        """
+        Return True only for a cell that is still hidden and not flagged.
+
+        This is the core safety check for the AI. If the solver ever produced a
+        move for a flagged or already-revealed square, the mine count and flag
+        tracking would be out of sync with the board state.
         """
         return (self.game.board.is_covered(row, col)
                 and not self.game.board.is_flagged(row, col))
 
     def _unknown_cells(self):
+        """List every legal candidate cell the AI is allowed to act on."""
         size = board_manager.BOARD_SIZE
         return [(r, c) for r in range(size) for c in range(size)
                 if self._is_unknown(r, c)]
 
     @staticmethod
     def label(row, col):
-        """A1-J10 label matching the UI"""
+        """Convert a board coordinate to a user-facing label such as A1 or J10."""
         return f"{chr(ord('A') + col)}{row + 1}"
 
-    # move generation 
-
     def _deduce(self):
-        """Return justified Moves. Easy deduces nothing."""
+        """Return a list of justified, rule-based moves. EasyAI deduces none."""
         return []
 
     def _random_move(self):
+        """Choose a legal random move from the remaining hidden cells."""
         cells = self._unknown_cells()
         if not cells:
             return None
@@ -74,21 +84,29 @@ class EasyAI:
         return Move("reveal", row, col, f"random pick: {self.label(row, col)}")
 
     def _still_valid(self, move):
-        """A queued move can be invalidated by an earlier move in the same batch"""
+        """Check whether a queued move is still legal after earlier actions."""
         return self._is_unknown(move.row, move.col)
 
     def next_move(self):
-        """Work out the next move without playing it. None if nothing to do."""
+        """
+        Compute the next move, but do not apply it yet.
+
+        This method keeps a queue of recently deduced moves so earlier decisions
+        stay consistent if the board changes during the same turn cycle. If a
+        queued move is no longer valid, it is discarded before the solver acts.
+        """
         if self.game.is_won or self.game.is_lost:
             return None
 
-        # Remove previously deduced moves, discarding any now stale.
+        # If a previously deduced move is still valid, play it before generating
+        # anything new. This preserves a deterministic ordering of actions.
         while self._queue:
             move = self._queue.pop(0)
             if self._still_valid(move):
                 return move
 
-        # fresh batch, filtering and de-duplicating it.
+        # Generate a fresh batch of deduced moves, then filter out duplicates and
+        # stale moves created by earlier board changes.
         seen, batch = set(), []
         for move in self._deduce():
             key = (move.action, move.row, move.col)
@@ -102,28 +120,38 @@ class EasyAI:
 
         return self._random_move()
 
-    #  move application 
-
     def apply(self, move):
-        """Play a Move through GameManager, mirroring InputHandler.handle_click."""
+        """
+        Apply a Move using the game's public API.
+
+        The game logic expects a move to be similar to the behavior of the user
+        input handlers: reveal cells or place flags, but never mutate the board
+        without checking the board state first.
+        """
         if move is None:
             return
         if move.action == "flag":
             self.game.flag_cell(move.row, move.col)
             return
-        # reveal_cell does not seed the board; the caller must do it first
+        # The first reveal must seed the mine placement. Once mines are set, the
+        # board no longer needs to be generated at reveal time.
         if not self.game.are_mines_populated:
             self.game.populate_mines(move.row, move.col)
         self.game.reveal_cell(move.row, move.col)
 
     def step(self):
-        """Take exactly one turn. Returns the Move played, or None."""
+        """Play exactly one turn and return the Move that was executed."""
         move = self.next_move()
         self.apply(move)
         return move
 
     def solve(self, max_steps=5000):
-        """Play to completion. Returns 'won', 'lost', or 'stalled'."""
+        """
+        Continue making moves until the game ends or the step limit is reached.
+
+        Returns a status string: "won", "lost", or "stalled". The solver uses an
+        upper bound to avoid infinite loops if the game state becomes inconsistent.
+        """
         for _ in range(max_steps):
             if self.game.is_won:
                 return "won"
@@ -136,22 +164,27 @@ class EasyAI:
 
 class MediumAI(EasyAI):
     """
-    Medium difficulty: two single-cell constraint rules, then random fallback.
+    Medium difficulty applies the standard Minesweeper deduction rules.
 
-      Rule 1 (all mines): hidden neighbors == the cell's number, so every
-                          unflagged hidden neighbor is a mine. Flag them.
-      Rule 2 (all safe):  flagged neighbors == the cell's number, so every
-                          other hidden neighbor is safe. Reveal them.
+    Rule 1: if the number of hidden neighbors equals the cell's number,
+            every hidden neighbor must be a mine and is flagged.
+    Rule 2: if the number of flagged neighbors equals the cell's number,
+            every other hidden neighbor must be safe and is revealed.
 
-    "hidden" counts flagged cells, per the spec. Moves are only  for
-    cells that are covered and unflagged, a rule that is already satisfied
-    produces nothing.
+    These rules are applied to every revealed square and are strong enough to
+    solve many boards without resorting to random guessing.
     """
 
     name = "Medium"
 
     def _cell_view(self, row, col):
-        """(number, hidden, flagged, unknown) for one revealed cell."""
+        """
+        Build a compact view of a revealed cell's neighborhood.
+
+        Returns: (adjacent_mines, hidden, flagged, unknown)
+        where hidden is every covered neighbor, flagged is the subset already
+        marked, and unknown is the subset still available to act on.
+        """
         hidden, flagged, unknown = [], [], []
         for n_row, n_col in self.game.board.neighbors(row, col):
             if self._is_revealed(n_row, n_col):
@@ -164,6 +197,7 @@ class MediumAI(EasyAI):
         return self.game.board.adjacent_mines(row, col), hidden, flagged, unknown
 
     def _deduce(self):
+        """Apply the single-cell Minesweeper constraint rules to produce moves."""
         moves = []
         size = board_manager.BOARD_SIZE
         for row in range(size):
@@ -173,13 +207,15 @@ class MediumAI(EasyAI):
 
                 number, hidden, flagged, unknown = self._cell_view(row, col)
                 if not unknown:
-                    continue  # nothing actionable left around this cell
+                    continue  # This cell has no actionable hidden neighbors.
 
                 if len(hidden) == number:
+                    # Every hidden neighbor must be a mine.
                     reason = (f"rule 1: {self.label(row, col)} shows {number} "
                               f"with {len(hidden)} hidden neighbor(s)")
                     moves += [Move("flag", r, c, reason) for r, c in unknown]
                 elif len(flagged) == number:
+                    # The flagged neighbors already satisfy the mine count.
                     reason = (f"rule 2: {self.label(row, col)} shows {number} "
                               f"with {len(flagged)} flag(s) placed")
                     moves += [Move("reveal", r, c, reason) for r, c in unknown]
@@ -189,17 +225,19 @@ class MediumAI(EasyAI):
 
 class HardAI(MediumAI):
     """
-    Hard difficulty: the Medium rules plus 1-2-1 pattern.
+    Hard difficulty extends the medium solver with an additional pattern-based
+    heuristic.
 
-   override _deduce() to call super()._deduce() first and, only
-    if that comes back empty, scan each row and column for three side byside
-    revealed cells reading 1-2-1 and eit flags on the outer hidden neighbors
-    and a reveal on the inner one.
+    This class is currently a placeholder for the larger pattern engine, but the
+    intended behavior is to preserve the MediumAI rules first and then look for
+    more advanced geometric patterns such as the 1-2-1 arrangement along a row
+    or column. Those pattern deductions can reduce randomness and improve solve
+    performance on complex boards.
     """
 
     name = "Hard"
 
 
 def make_ai(game, level="easy", seed=None):
-    """Factory. level is 'easy', 'medium', or 'hard'."""
+    """Factory method that creates the requested AI difficulty."""
     return {"easy": EasyAI, "medium": MediumAI, "hard": HardAI}[level.lower()](game, seed=seed)

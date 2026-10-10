@@ -79,6 +79,9 @@ from input_handler import InputHandler
 from ai_solver import make_ai  # AI solver: factory for the Easy/Medium/Hard solvers
 
 
+# Board and window sizing constants.
+# These values control the grid layout, the overall window proportions, and the
+# placement of the status and AI-control panel.
 CELL_SIZE = 50
 
 BOARD_LEFT = 50
@@ -87,23 +90,28 @@ BOARD_BOTTOM = 50
 WINDOW_WIDTH = 840
 WINDOW_HEIGHT = 650
 
+# Sound toggle controls. The speaker icon sits in the upper-right corner of the
+# game window and can be clicked to mute or unmute audio effects.
 SOUND_SIZE = 48
 SOUND_X = WINDOW_WIDTH - SOUND_SIZE - 12
 SOUND_Y = 12
 
+# The AI control panel is anchored to the right side of the board.
 PANEL_LEFT = 620
 PANEL_WIDTH = 200
 
 COLUMN_LABELS = "ABCDEFGHIJ"
-#configs for setting buttons for the mode selection and difficulty selection screens
-#formatting used chatGPT GPT-5.6 Luna for reference of an easy way to set up buttons and their locations on the screen
+# UI config for the mode-selection and difficulty-selection controls.
+# This pattern keeps the button layout consistent and easy to modify later.
 
-# Standard Minesweeper colors for the adjacent mine counts
+# Standard Minesweeper colors for showing the number of nearby mines.
 NUMBER_COLORS = {1: arcade.color.BLUE, 2: arcade.color.GREEN, 3: arcade.color.RED,
                  4: arcade.color.DARK_BLUE, 5: arcade.color.MAROON, 6: arcade.color.TEAL,
                  7: arcade.color.BLACK, 8: arcade.color.GRAY}
 
-
+# Supported AI difficulties and operating modes.
+# "off" means the player controls every move, while the other modes let the AI
+# take turns either after each click or automatically on a timer.
 AI_LEVELS = ["easy", "medium", "hard"]
 AI_MODES = ["off", "interactive", "auto"]
 MODE_LABELS = {"off": "Off", "interactive": "Turn", "auto": "Auto"}
@@ -111,39 +119,51 @@ MODE_HELP = {"off": "You play alone",
              "interactive": "AI moves after each click",
              "auto": "AI plays by itself"}
 
+
 class Button:
-    """A clickable rectangle with a label."""
+    """A clickable rectangular UI control with a text label."""
 
     def __init__(self, left, bottom, width, height, label, action, is_active=None):
+        # Store the button's geometry and behavior.
         self.left, self.bottom, self.width, self.height = left, bottom, width, height
         self.label = label
         self.action = action
         self.is_active = is_active or (lambda: False)
 
     def contains(self, x, y):
+        # Mouse events use the button's rectangular bounds to determine clicks.
         return (self.left <= x <= self.left + self.width and
                 self.bottom <= y <= self.bottom + self.height)
 
     def draw(self):
+        # Active buttons are highlighted, while inactive buttons appear muted.
         color = arcade.color.LIGHT_BLUE if self.is_active() else arcade.color.LIGHT_GRAY
         arcade.draw_lbwh_rectangle_filled(self.left, self.bottom, self.width, self.height, color)
         arcade.draw_lbwh_rectangle_outline(self.left, self.bottom, self.width, self.height,
                                            arcade.color.BLACK, 2)
         arcade.draw_text(self.label, self.left + self.width / 2, self.bottom + self.height / 2,
                          arcade.color.BLACK, 12, anchor_x="center", anchor_y="center")
-        
+
+
 class MinesweeperWindow(arcade.Window):
-    """Simple Arcade UI for Minesweeper."""
+    """Main Arcade window for the Minesweeper game and AI controls."""
 
     def __init__(self):
+        # Arcade windows need a size and title before any rendering can happen.
+        # The actual gameplay state is created later, after the player selects a
+        # mine count and the game starts.
         super().__init__(WINDOW_WIDTH, WINDOW_HEIGHT, "Minesweeper")
 
-        # The game is created once the player confirms a mine count
+        # The game is created once the player confirms a mine count.
         self.game = None
         self.input_handler = None
-        #states for AI selection screen
+
+        # ui_state tracks where the user is in the startup flow. The app starts in
+        # the mode-selection screen, then moves to a mine-count input screen.
         self.ui_state = "mode_select"
-        # AI solver: solver instance, difficulty, and turn-taking state
+
+        # AI state: a solver instance, selected difficulty, current mode, and a
+        # small timer used for pacing automatic/interactive turns.
         self.ai = None
         self.ai_level = "easy"
         self.ai_mode = "Solo"      # "Solo" | "Co-op" | "Computer Solve"
@@ -152,12 +172,13 @@ class MinesweeperWindow(arcade.Window):
         self.ai_reason = ""
         self.mine_count_input = ""
         self.setup_error = ""
-        # Sound is on by default
+
+        # Sound is on by default; the speaker icon is loaded from the Arcade
+        # resource library so the UI looks consistent with the rest of the app.
         self.sound_enabled = True
-        # Load Arcade's built-in speaker icon
         self.sound_icon = arcade.load_texture(":resources:/onscreen_controls/flat_dark/sound_on.png")
 
-        # AI solver: solver instance, difficulty, and turn-taking state
+        # Reset AI details to the active runtime values used by the board state.
         self.ai = None
         self.ai_level = "easy"
         self.ai_mode = "off"      # "off" | "interactive" | "auto"
@@ -169,15 +190,20 @@ class MinesweeperWindow(arcade.Window):
 
     def start_game(self, num_mines):
         """Create a new game and rebuild the input handler for it."""
+        # The GameManager owns the board rules, and InputHandler translates user
+        # clicks into reveal/flag actions in the correct board-space coordinates.
         self.game = GameManager(num_mines)
         self.input_handler = InputHandler(self.game, CELL_SIZE, BOARD_LEFT, BOARD_BOTTOM, sound_enabled=self.sound_enabled)
-        # AI solver: rebind to the new game and clear per-game turn state
+
+        # Rebind the AI to the new board and reset per-game turn state so the AI
+        # starts fresh on the current board rather than carrying state from the last round.
         self.ai = make_ai(self.game, self.ai_level)
         self.ai_pending = False
         self.ai_reason = ""
 
     def confirm_mine_count(self):
         """Start a game with the typed mine count, or report that it is invalid."""
+        # Use the typed value if provided; otherwise keep the default of 10 mines.
         num_mines = int(self.mine_count_input or 10)
         if not (10 <= num_mines <= 20):
             self.setup_error = "Number of mines must be 10 to 20"
@@ -188,7 +214,7 @@ class MinesweeperWindow(arcade.Window):
 
     def draw_sound_button(self):
         """Draw the speaker icon with a red line when muted."""
-        # Draw the speaker
+        # Render the default speaker image in the upper-right corner of the window.
         arcade.draw_texture_rect(
             self.sound_icon,
             arcade.LBWH(
@@ -199,7 +225,8 @@ class MinesweeperWindow(arcade.Window):
             )
         )
 
-    # Draw a red diagonal line when muted
+        # When audio is disabled, overlay a red diagonal line to make the muted
+        # state visually obvious without changing the rest of the UI layout.
         if not self.sound_enabled:
             arcade.draw_line(
                 SOUND_X + 6,
@@ -212,12 +239,16 @@ class MinesweeperWindow(arcade.Window):
 
     def toggle_sound(self):
         """Toggle sound effects on or off."""
+        # The toggle updates both the UI state and the input handler so that any
+        # gameplay sound effects honor the same setting.
         self.sound_enabled = not self.sound_enabled
         if self.input_handler is not None:
             self.input_handler.sound_enabled = self.sound_enabled
 
     def on_draw(self):
         """Draw the setup screen or the current board."""
+        # Clear the screen each frame so the board can re-render from the current
+        # game state without leaving stale pixels behind.
         self.clear(arcade.color.WHITE)
 
         if self.game is None:
@@ -294,6 +325,8 @@ class MinesweeperWindow(arcade.Window):
 
     def draw_setup(self):
         """Draw the mine count selection screen."""
+        # This setup screen serves as a lightweight pre-game form. It lets the
+        # player choose the board difficulty before the game begins.
         arcade.draw_text("Minesweeper", WINDOW_WIDTH / 2, 420, arcade.color.BLACK, 32, anchor_x="center")
         arcade.draw_text("Type the number of mines (10-20) and press Enter", WINDOW_WIDTH / 2, 360,
                          arcade.color.BLACK, 16, anchor_x="center")
@@ -306,12 +339,15 @@ class MinesweeperWindow(arcade.Window):
     def on_key_press(self, key, modifiers):
         """Handle mine count entry, game start, restart, and AI hotkeys."""
         if self.game is None:
-            #add config for mode selection screen.
+            # The startup flow is intentionally simple: press Enter to move from the
+            # mode screen into the mine-count input screen.
             if self.ui_state == "mode_select":
-                #if you hit enter, move to mine setup screen
                 if key == arcade.key.ENTER:
                     self.ui_state = "mine_setup"
                 return
+
+            # Number input is validated before the game starts so invalid counts do
+            # not create an unusable board state.
             if arcade.key.KEY_0 <= key <= arcade.key.KEY_9:
                 self.mine_count_input += chr(key)
                 self.setup_error = ""
@@ -321,9 +357,10 @@ class MinesweeperWindow(arcade.Window):
             elif key == arcade.key.ENTER:
                 self.confirm_mine_count()
         elif key == arcade.key.R:
-            # R starts a new game with the same mine count
+            # R restarts the current board with the same mine count instead of
+            # resetting the entire application.
             self.start_game(self.game.num_mines)
-        # AI solver: hotkeys share their logic with the panel buttons
+        # AI solver: hotkeys share the same logic as the panel buttons.
         elif key == arcade.key.D:
             self.set_ai_level(AI_LEVELS[(AI_LEVELS.index(self.ai_level) + 1) % len(AI_LEVELS)])
         elif key == arcade.key.A:
@@ -335,10 +372,12 @@ class MinesweeperWindow(arcade.Window):
         """Create the AI panel buttons."""
         buttons = []
         for i, mode in enumerate(AI_MODES):
+            # Each mode button toggles the AI mode and highlights the active state.
             buttons.append(Button(PANEL_LEFT + i * 69, 450, 62, 30, MODE_LABELS[mode],
                                   lambda m=mode: self.set_ai_mode(m),
                                   lambda m=mode: self.ai_mode == m))
         for i, level in enumerate(AI_LEVELS):
+            # Difficulty buttons swap the AI solver implementation while keeping the same board.
             buttons.append(Button(PANEL_LEFT + i * 69, 380, 62, 30, level.capitalize(),
                                   lambda l=level: self.set_ai_level(l),
                                   lambda l=level: self.ai_level == l))
@@ -348,20 +387,27 @@ class MinesweeperWindow(arcade.Window):
         return buttons
 
     def set_ai_mode(self, mode):
+        # Switching modes resets any pending turn so the AI does not continue from
+        # stale state after the user changes its behavior.
         self.ai_mode = mode
         self.ai_timer = 0.0
         self.ai_pending = False
 
     def set_ai_level(self, level):
+        # Rebind the solver to the current board at the selected skill level.
         self.ai_level = level
         if self.game is not None:
             self.ai = make_ai(self.game, self.ai_level)  # rebind, same board
 
     def change_ai_delay(self, amount):
+        # The delay is clamped to a safe range so the AI can be slowed down or sped
+        # up without breaking the pacing logic.
         self.ai_delay = round(min(1.0, max(0.05, self.ai_delay + amount)), 2)
 
     def draw_ai_panel(self):
         """Draw the AI control panel."""
+        # The panel lives on the right side of the window and allows the player to
+        # inspect and adjust the AI's operating mode, difficulty, and move speed.
         arcade.draw_text("AI Agent", PANEL_LEFT, 520, arcade.color.BLACK, 20)
         arcade.draw_text("Mode", PANEL_LEFT, 490, arcade.color.BLACK, 14)
         arcade.draw_text(MODE_HELP[self.ai_mode], PANEL_LEFT, 430, arcade.color.DARK_GRAY, 11)
@@ -370,17 +416,21 @@ class MinesweeperWindow(arcade.Window):
         for button in self.buttons:
             button.draw()
 
-      # AI solver: play a single AI turn and record its justification
+    # AI solver: play a single AI turn and record its justification.
     def _take_ai_turn(self):
         """Play one AI move and record why it was made."""
         if self.game is None or self.game.is_won or self.game.is_lost:
             return
+        # The AI returns a Move object with a reason string; this shows the player
+        # why the solver chose a particular action.
         move = self.ai.step()
         self.ai_reason = move.reason if move else "no moves available"
 
-    # AI solver: arcade calls this every frame; used to pace automatic solving
+    # AI solver: Arcade calls this every frame to pace automatic solving.
     def on_update(self, delta_time):
         """Pace AI turns so the moves are watchable."""
+        # Auto mode advances continuously, while interactive mode waits for the user
+        # to trigger the next AI move after a click.
         if self.game is None or self.game.is_won or self.game.is_lost:
             return
         if self.ai_mode == "auto":
@@ -397,6 +447,8 @@ class MinesweeperWindow(arcade.Window):
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the AI panel or the input handler."""
+        # The sound button is always checked first so it can be toggled even when
+        # the board is not active.
         if (button == arcade.MOUSE_BUTTON_LEFT and
                 SOUND_X <= x <= SOUND_X + SOUND_SIZE and
                 SOUND_Y <= y <= SOUND_Y + SOUND_SIZE):
@@ -406,19 +458,20 @@ class MinesweeperWindow(arcade.Window):
         if self.game is None:
             return
 
-        # AI panel buttons work at any time, including after a win or loss
+        # AI panel buttons work at any time, including after a win or loss.
         for ui_button in self.buttons:
             if ui_button.contains(x, y):
                 ui_button.action()
                 return
 
-        # Board clicks are only allowed while the game is still running
+        # Board clicks are only allowed while the game is still running.
         if self.game.is_lost or self.game.is_won:
             return
 
         self.input_handler.handle_click(x, y, button)
 
-        # AI solver: in interactive mode a left click hands the turn to the AI
+        # In interactive mode, a left click hands the turn to the AI after the
+        # player's action has been applied.
         if self.ai_mode == "interactive" and button == arcade.MOUSE_BUTTON_LEFT:
             self.ai_pending = True
             self.ai_timer = 0.0
