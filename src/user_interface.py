@@ -138,6 +138,10 @@ class MinesweeperWindow(arcade.Window):
         self.ai_reason = ""
         self.ai_delay = 0.25
         self.buttons = self.build_buttons()
+        
+        # Timer: reset the timer at the start of a new game
+        self.timer_start = reset_timer()  # Timer: start the timer at the beginning of the game
+        self.timer_elapsed = None
 
     def start_game(self, num_mines):
         """Create a new game and rebuild the input handler for it."""
@@ -147,6 +151,9 @@ class MinesweeperWindow(arcade.Window):
         self.ai = make_ai(self.game, self.ai_level)
         self.ai_pending = False
         self.ai_reason = ""
+        
+        
+        
 
     def confirm_mine_count(self):
         """Start a game with the typed mine count, or report that it is invalid."""
@@ -215,11 +222,13 @@ class MinesweeperWindow(arcade.Window):
         arcade.draw_text(f"Flags: {self.game.mine_count}", BOARD_LEFT, board_top + 30, arcade.color.BLACK, 18)
 
         if self.game.is_lost:
-            status, status_color = f"Game Over: Loss | {timer(self.timer_start)}", arcade.color.RED
+            self._freeze_timer_if_game_over()
+            status, status_color = f"Game Over: Loss | Time: {self.timer_elapsed}", arcade.color.RED
             arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
             arcade.color.BLACK, 18, anchor_x="center", bold=True)
         elif self.game.is_won:
-            status, status_color = "Victory | {timer(self.timer_start)", arcade.color.GREEN
+            self._freeze_timer_if_game_over()
+            status, status_color = f"Victory | Time: {self.timer_elapsed}", arcade.color.GREEN
             arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
             arcade.color.BLACK, 18, anchor_x="center", bold=True)
         else:
@@ -310,6 +319,7 @@ class MinesweeperWindow(arcade.Window):
             return
         move = self.ai.step()
         self.ai_reason = move.reason if move else "no moves available"
+        self._freeze_timer_if_game_over()
 
     # AI solver: arcade calls this every frame; used to pace automatic solving
     def on_update(self, delta_time):
@@ -328,7 +338,7 @@ class MinesweeperWindow(arcade.Window):
                 self.ai_pending = False
                 self._take_ai_turn()
 
-    def _freeze_timer_if_game_over(self, timer):
+    def _freeze_timer_if_game_over(self):
         """Save the elapsed time once the game reaches a win or loss."""
         if (self.timer_elapsed is None and self.game is not None
                 and (self.game.is_won or self.game.is_lost)):
