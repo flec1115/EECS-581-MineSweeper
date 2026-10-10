@@ -109,5 +109,9 @@ One hour in meeting to review project 2 progress
 Date: 10/07/2026
 ~15 minute meetting to discuss project and upcoming project 3
 
-Total hours: 4.25
+Date: 10/10/2026
+Went through and added comments to prior code
+30 minutes
+
+Total hours: 4.75
 

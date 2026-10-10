@@ -87,6 +87,7 @@ CELL_SIZE = 50
 BOARD_LEFT = 50
 BOARD_BOTTOM = 50
 
+#This is the size of the game window
 WINDOW_WIDTH = 840
 WINDOW_HEIGHT = 650
 
@@ -119,7 +120,7 @@ MODE_HELP = {"off": "You play alone",
              "interactive": "AI moves after each click",
              "auto": "AI plays by itself"}
 
-
+#This class is in charge of the Panel that the player can click in to change the AI solver
 class Button:
     """A clickable rectangular UI control with a text label."""
 
