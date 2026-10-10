@@ -193,8 +193,73 @@ class HardAI(MediumAI):
     revealed cells reading 1-2-1 and eit flags on the outer hidden neighbors
     and a reveal on the inner one.
     """
+    
 
     name = "Hard"
+    
+    def _deduce(self):
+        moves = super()._deduce()  # Run Medium's rules
+
+        if moves:
+            return moves
+
+        else:
+            # Scan for 1-2-1 patterns in rows and columns
+            #Inline suggested by the user to complete the code in the middle of the file.
+            size = board_manager.BOARD_SIZE
+            for vert in range(size-1): #vertical scan, changes row
+                for hort in range(size-2): #horitontal scan, changes column
+                    
+                    if not all(self._is_revealed(vert, hort + i)
+                        for i in range(3)):
+                        continue  # Skip if not all three cells are revealed
+                    
+                    else:
+                        left = self.game.board.adjacent_mines(vert, hort)
+                        middle = self.game.board.adjacent_mines(vert, hort + 1)
+                        right = self.game.board.adjacent_mines(vert, hort + 2)
+                        
+                    if (left, middle, right) != (1, 2, 1):
+                        continue  # Skip if the pattern is not 1-2-1
+                    
+                    else:
+                        front_left = (vert + 1, hort)
+                        front_middle = (vert + 1, hort + 1)
+                        front_right = (vert + 1, hort + 2)
+                    
+                    if not all(self._is_unknown(r, c) for r, c in [front_left, front_middle, front_right]):
+                        continue  # Skip if any of the front cells are not unknown
+                    
+                    if (set([front_left, front_middle, front_right]) & set(moves)):
+                        continue  # Skip if any of the front cells are already in moves
+                    
+                    else:
+                        moves.append(Move("flag", front_left[0], front_left[1], "1-2-1 pattern"))
+                        moves.append(Move("reveal", front_middle[0], front_middle[1], "1-2-1 pattern"))
+                        moves.append(Move("flag", front_right[0], front_right[1], "1-2-1 pattern"))
+                        # Mark the respective front cells as flagged or revealed based on the 1-2-1 pattern
+                            
+                        
+                    '''if not ((self._is_revealed(vert, hort)
+                        and self._is_revealed(vert, hort + 1) 
+                        and self._is_revealed(vert, hort + 2))
+                        #checks if the 3 tiles are revealed
+                        
+                        and (self.game.board.adjacent_mines(vert, hort) == 1
+                        and self.game.board.adjacent_mines(vert, hort + 1) == 2
+                        and self.game.board.adjacent_mines(vert, hort + 2) == 1)
+                        ): # 3 tile scan left to right to check if they're revealed
+                        
+                        if (not self._is_revealed(vert+1, hort)
+                        and not self._is_revealed(vert+1, hort+1) 
+                        and not self._is_revealed(vert+1, hort+2)):
+                        # check unrevealed tiles in front of the 1-2-1 pattern
+                            
+                            moves.append(Move("flag", vert+1, hort, "1-2-1 pattern"))
+                            moves.append(Move("reveal", vert+1, hort+1, "1-2-1 pattern"))
+                            moves.append(Move("flag", vert+1, hort+2, "1-2-1 pattern"))'''
+
+            return moves
 
 
 def make_ai(game, level="easy", seed=None):

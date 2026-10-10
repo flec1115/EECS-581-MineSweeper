@@ -63,11 +63,12 @@ Authors: Kyler Russell, Blake Pennel, Carter Steenhard
 Creation Date: 9/15/2026
 """
 import arcade
+from pathlib import Path
 from game_logic import GameManager
 import board_manager
 from input_handler import InputHandler
 from ai_solver import make_ai  # AI solver: factory for the Easy/Medium/Hard solvers
-
+from Extra_feats import reset_timer, timer  # Timer functions
 
 CELL_SIZE = 50
 
@@ -214,15 +215,15 @@ class MinesweeperWindow(arcade.Window):
         arcade.draw_text(f"Flags: {self.game.mine_count}", BOARD_LEFT, board_top + 30, arcade.color.BLACK, 18)
 
         if self.game.is_lost:
-            status, status_color = "Game Over: Loss", arcade.color.RED
+            status, status_color = f"Game Over: Loss | {timer(self.timer_start)}", arcade.color.RED
             arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
             arcade.color.BLACK, 18, anchor_x="center", bold=True)
         elif self.game.is_won:
-            status, status_color = "Victory", arcade.color.GREEN
+            status, status_color = "Victory | {timer(self.timer_start)", arcade.color.GREEN
             arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
             arcade.color.BLACK, 18, anchor_x="center", bold=True)
         else:
-            status, status_color = "Playing", arcade.color.BLACK
+            status, status_color = f"Playing | Timer: {timer(self.timer_start)}", arcade.color.BLACK
 
         arcade.draw_text(status, BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE, board_top + 30,
                          status_color, 18, anchor_x="right")
@@ -327,6 +328,12 @@ class MinesweeperWindow(arcade.Window):
                 self.ai_pending = False
                 self._take_ai_turn()
 
+    def _freeze_timer_if_game_over(self, timer):
+        """Save the elapsed time once the game reaches a win or loss."""
+        if (self.timer_elapsed is None and self.game is not None
+                and (self.game.is_won or self.game.is_lost)):
+            self.timer_elapsed = timer(self.timer_start)
+
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the AI panel or the input handler."""
         if self.game is None:
@@ -343,6 +350,7 @@ class MinesweeperWindow(arcade.Window):
             return
 
         self.input_handler.handle_click(x, y, button)
+        self._freeze_timer_if_game_over()
 
         # AI solver: in interactive mode a left click hands the turn to the AI
         if self.ai_mode == "interactive" and button == arcade.MOUSE_BUTTON_LEFT:
