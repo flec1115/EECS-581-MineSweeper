@@ -46,11 +46,14 @@ Fixed 10x10 grid size
 
 Mine count user-specified (10–20) at game start
 
+Update 9/26/2026 - Felix
+Add sound effects capability to the game for win, loss, and flagging actions. This includes loading sound files and triggering them at appropriate game events.
+
   
 How you validated and revised the AI output: Proofreading, testing, and validating accuracy with intentions
 The challenges or limitations you faced while using AI: Validating logical execution of the input handler code and ensuring that the input handler functioned as intended took a significant amount of proofreading and testing.
 Attributions: 
-Authors: Blake Pennel
+Authors: Blake Pennel, Felix
 Creation Date: 9/15/2026
 """
 import arcade
@@ -58,12 +61,18 @@ import arcade
 
 class InputHandler:
     """Handles simple mouse input for the Minesweeper board."""
-
-    def __init__(self, game, cell_size, board_left, board_bottom):
+        #inialization features for the input handler, including sound effects for flagging, losing, and winning
+    def __init__(self, game, cell_size, board_left, board_bottom, sound_enabled=True):
         self.game = game
         self.cell_size = cell_size
         self.board_left = board_left
         self.board_bottom = board_bottom
+        self.sound_enabled = sound_enabled
+        #sound effect variables from the arcade library, loaded from the sfx folder
+        self.flag_sound = arcade.load_sound("./sfx/flag.wav")
+        self.bomb_sound = arcade.load_sound("./sfx/bomb.mp3")
+        self.blip_sound = arcade.load_sound("./sfx/blip.wav")
+        self.cheer_sound = arcade.load_sound("./sfx/cheer.wav")
 
     def handle_click(self, x, y, button):
         """Convert a mouse click into a board row and column."""
@@ -82,6 +91,15 @@ class InputHandler:
             if self.game.board.is_covered(row, col):
                 self.game.reveal_cell(row, col)
 
+                # Only play sound effects if sound is enabled
+                if self.sound_enabled:
+                    if self.game.is_lost:
+                        arcade.play_sound(self.bomb_sound)
+                    elif self.game.is_won:
+                        arcade.play_sound(self.cheer_sound)
+                    else:
+                        arcade.play_sound(self.blip_sound)
+
         # Right click toggles a flag
         elif button == arcade.MOUSE_BUTTON_RIGHT:
             if self.game.board.is_covered(row, col):
@@ -89,3 +107,5 @@ class InputHandler:
                     self.game.unflag_cell(row, col)
                 else:
                     self.game.flag_cell(row, col)
+                if self.sound_enabled:
+                    arcade.play_sound(self.flag_sound)

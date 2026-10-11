@@ -1,0 +1,28 @@
+Group 5 Continuation of Project
+Meeting 1 - 9/23/2026
+Location: Eaton 3001
+Objective: Review previous project. Discuss new coninuation of project and the required features we want to add.
+Atttendence: William, John, Felix, Aziz, Jamareon, Riley
+Details: Daily Scrum with Huy, sprint review of last task and introduction to Project 2
+
+Review:
+	- Review our own Minesweeper project, demonstrate all the features to Huy.
+	- Discuss things that went wrong and those that went right. 
+
+Initial Discussion:
+	- Talk about what we want to do for the next sprint (who wants to code, documentation, UI vs. backend, etc.)
+	- Discuss what features we want to add
+	- Review AI Logic for minesweeper and requirements for that as well as how to handle the AI logic (class based with inheritance)
+
+
+Tasks Currently in Development:
+	- William: Documentation and potential UI development if needed
+	- John: UI development for handling AI logic
+	- Riley: AI logic develpoment for backend - hard/medium difficulty ones
+	- Aziz: AI logic development for backend - overall setup/easy difficulty and more if time permits
+	- Felix: Feature addition - Sound effects added first, more added time permitting
+	- Jamareon: AI logic development for backend - hard/medium difficulty and wherever needs help
+
+Plan for Sprint:
+	Communicate in group chat more. Do a check in over the weekend to ensure progress is being made and tackle what parts need to be adapted.
+
