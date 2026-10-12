@@ -8,10 +8,10 @@
 |   Feature Creation | Felix Balandran | 4 hours |      
 |   AI Logic Development | Abdulaziz Arab | 7.25 hours |    
 |   AI Logic Development | Jamareon Davis | 6.25 hours |      
-|   AI Logic Development | Riley Backus | 4.25 hours |       
+|   AI Logic Development | Riley Backus | 4.75 hours |       
 
 
-Total Actual Hours: 30.5
+Total Actual Hours: 31
 
 ## John Vitha Hours Tracking:
 Date: 9/23/2026

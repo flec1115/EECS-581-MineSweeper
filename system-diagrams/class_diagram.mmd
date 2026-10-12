@@ -67,7 +67,6 @@ classDiagram
       +InputHandler input_handler
       +ai
       +List~Button~ buttons
-      +str ui_state
       +str ai_level
       +str ai_mode
       +float ai_timer
@@ -77,6 +76,8 @@ classDiagram
       +str mine_count_input
       +str setup_error
       +bool sound_enabled
+      +float timer_start
+      +float timer_elapsed
       +start_game(num_mines) None
       +confirm_mine_count() None
       +draw_sound_button() None
@@ -90,7 +91,9 @@ classDiagram
       +set_ai_mode(mode) None
       +set_ai_level(level) None
       +change_ai_delay(amount) None
-      +_take_ai_turn() None
+      +_take_ai_turn() Move
+      +_timer_text() str
+      +_freeze_timer_if_game_over() None
     }
 
     class EasyAI {
@@ -109,6 +112,7 @@ classDiagram
     }
 
     class HardAI {
+      +_deduce() List~Move~
     }
 
     class Move {
@@ -120,6 +124,11 @@ classDiagram
 
     class arcade_Window {
       <<library>>
+    }
+
+    class time_perf_counter {
+      <<library>>
+      +perf_counter() float
     }
 
     BoardManager "1" *-- "100" Cell : board
@@ -143,3 +152,4 @@ classDiagram
     MinesweeperWindow ..> EasyAI : creates via make_ai()
     MinesweeperWindow ..> MediumAI : creates via make_ai()
     MinesweeperWindow ..> HardAI : creates via make_ai()
+    MinesweeperWindow ..> time_perf_counter : gameplay clock

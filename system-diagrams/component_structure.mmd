@@ -3,20 +3,22 @@ flowchart TB
 
     subgraph APP[" Minesweeper application "]
       direction TB
-      UI["«component»<br/><b>MinesweeperWindow + Button</b><br/><i>user_interface.py</i><br/>setup, board, AI and sound controls"]
+      UI["«component»<br/><b>MinesweeperWindow + Button</b><br/><i>user_interface.py</i><br/>mine-count setup, board, play clock, AI and sound controls"]
       IH["«component»<br/><b>InputHandler</b><br/><i>input_handler.py</i><br/>board input and sound effects"]
-      AI["«component»<br/><b>EasyAI / MediumAI / HardAI</b><br/><i>ai_solver.py</i><br/>select and apply moves"]
+      AI["«component»<br/><b>EasyAI / MediumAI / HardAI</b><br/><i>ai_solver.py</i><br/>random fallback, single-cell rules, horizontal 1-2-1; flags do not end AI Turn"]
       GL["«component»<br/><b>GameManager</b><br/><i>game_logic.py</i><br/>game rules"]
       BM["«component»<br/><b>BoardManager + Cell</b><br/><i>board_manager.py</i><br/>board state"]
     end
 
     RND["«library»<br/><b>random</b><br/>mine sampling and AI fallback"]
     SFX["«assets»<br/><b>sfx/</b><br/>flag, bomb, blip, cheer"]
+    CLOCK["«library»<br/><b>time.perf_counter</b><br/>elapsed gameplay time"]
 
     ARC -->|"window events"| UI
     UI -->|"board clicks"| IH
     UI -.->|"syncs mute state"| IH
     UI -->|"requests AI moves"| AI
+    UI -->|"reads monotonic clock"| CLOCK
     UI -.->|"reads game status"| GL
     UI -.->|"renders board cells"| BM
     IH -->|"reveal and flag actions"| GL
@@ -30,4 +32,4 @@ flowchart TB
     classDef comp fill:#eef2f9,stroke:#4a6fa5,stroke-width:1.4px,color:#161a21
     classDef lib fill:#f2f3f5,stroke:#9aa3b0,stroke-width:1.2px,color:#3d4652
     class UI,IH,AI,GL,BM comp
-    class ARC,RND,SFX lib
+    class ARC,RND,CLOCK,SFX lib
