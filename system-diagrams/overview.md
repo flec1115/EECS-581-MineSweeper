@@ -3,6 +3,8 @@
 This file contains the mermaid diagrams for the system components, data flow, and key data structures of our Minesweeper program. `Inf_mode.py` is intentionally excluded for now.
 Attribution: These diagrams were created with the aid of Claude Opus 5, and then verified by Kyler Russell.
 
+The opening screen accepts the mine count immediately (10-20; blank Enter uses 10). The gameplay clock starts with each new game and freezes at win/loss. In Turn mode, only a player's left-click reveal of a covered, unflagged cell hands off the turn; flags do not. The AI may flag multiple cells during its turn and completes that turn after revealing a cell. Hard AI adds a horizontal 1-2-1 deduction to the Medium rules.
+
 ## Diagram of System Components
 
 This diagram displays the system components of our Minesweeper program.
@@ -10,15 +12,16 @@ This diagram displays the system components of our Minesweeper program.
 ```mermaid
 flowchart TB
     ARC["«library»<br/><b>Arcade 3.3.3+</b><br/>window, events, drawing, audio"]
-    RND["«library»<br/><b>random</b><br/>mine placement and EasyAI choices"]
+    RND["«library»<br/><b>random</b><br/>mine placement and AI fallback choices"]
+    CLOCK["«library»<br/><b>time.perf_counter</b><br/>elapsed gameplay time"]
     SFX["«assets»<br/><b>sfx/</b><br/>flag, bomb, blip, cheer"]
 
     subgraph APP["Minesweeper application"]
       direction TB
-      UI["«component»<br/><b>MinesweeperWindow</b><br/><i>user_interface.py</i><br/>setup, board and AI controls"]
+      UI["«component»<br/><b>MinesweeperWindow</b><br/><i>user_interface.py</i><br/>mine setup, board, play clock and AI controls"]
       BTN["«component»<br/><b>Button</b><br/><i>user_interface.py</i><br/>AI panel controls"]
       IH["«component»<br/><b>InputHandler</b><br/><i>input_handler.py</i><br/>board clicks and SFX"]
-      AI["«component»<br/><b>EasyAI / MediumAI / HardAI</b><br/><i>ai_solver.py</i><br/>move selection and application"]
+      AI["«component»<br/><b>EasyAI / MediumAI / HardAI</b><br/><i>ai_solver.py</i><br/>random fallback, single-cell rules, horizontal 1-2-1; flags do not end AI Turn"]
       MOVE["«data»<br/><b>Move</b><br/><i>ai_solver.py</i><br/>action, cell, reason"]
       GL["«component»<br/><b>GameManager</b><br/><i>game_logic.py</i><br/>game rules and status"]
       BM["«component»<br/><b>BoardManager + Cell</b><br/><i>board_manager.py</i><br/>10 x 10 board state"]
@@ -31,6 +34,7 @@ flowchart TB
     UI -.->|"reads game status"| GL
     UI -.->|"reads board cells for rendering"| BM
     UI -.->|"requests an AI turn"| AI
+    UI -->|"reads monotonic clock"| CLOCK
     IH -->|"reveal, flag, unflag"| GL
     IH -->|"loads and plays"| SFX
     IH -->|"audio API"| ARC
@@ -47,7 +51,7 @@ flowchart TB
     classDef lib fill:#f2f3f5,stroke:#9aa3b0,stroke-width:1.2px,color:#3d4652
     class UI,BTN,IH,AI,GL,BM comp
     class MOVE data
-    class ARC,RND,SFX lib
+    class ARC,RND,CLOCK,SFX lib
 ```
 
 ## Data Flow
@@ -58,34 +62,38 @@ This diagram displays the data flow of our Minesweeper program.
 flowchart LR
     P(("Player"))
 
-    KP["Keyboard<br/><i>Enter, 0-9, Backspace<br/>R, A, D, S</i>"]
+    KP["Keyboard<br/><i>0-9, Backspace, Enter<br/>R, A, D, S</i>"]
     MP["Mouse<br/><i>board, AI controls<br/>sound button</i>"]
     UI["MinesweeperWindow<br/><b>Arcade event handling</b>"]
-    SETUP["Mine-count entry<br/>validate 10 to 20<br/>blank Enter uses 10"]
+    SETUP["Mine-count entry<br/>digits accepted immediately<br/>validate 10 to 20; blank Enter = 10"]
     CREATE["start_game<br/>create GameManager,<br/>InputHandler and AI"]
     HIT["InputHandler<br/>pixels to row/column<br/>bounds check"]
     TOGGLE["Sound button click"]
-    PANEL["AI controls<br/>mode, level, delay,<br/>single step"]
-    AI["EasyAI / MediumAI / HardAI<br/>choose a Move"]
+    PANEL["AI controls<br/>mode, level, AI delay,<br/>single step"]
+    TURN["Turn-mode handoff<br/>player left-click reveal of a covered,<br/>unflagged cell only; flags do not hand off"]
+    AI["EasyAI / MediumAI / HardAI<br/>random fallback, single-cell rules,<br/>horizontal 1-2-1; AI flags continue its turn"]
     RULES["GameManager<br/>mine placement, reveal cascade,<br/>flags and win/loss"]
 
     BS[("BoardManager<br/><b>10 x 10 Cell grid</b><br/>covered, flagged, is_mine")]
     GS[("Game state<br/><b>GameManager</b><br/>is_won, is_lost, mine_count,<br/>flags, cells_to_clear")]
     AUDIO["InputHandler SFX<br/>flag, bomb, blip, cheer"]
+    CLOCK["Gameplay clock<br/>time.perf_counter<br/>starts on game creation;<br/>freezes at win/loss"]
     RENDER["MinesweeperWindow.on_draw<br/>board, status, AI panel,<br/>sound button"]
     SCREEN["840 x 650 Arcade window"]
 
     P --> KP --> UI
     P --> MP --> UI
-    UI -->|"Enter / count keys"| SETUP --> CREATE
+    UI -->|"count keys / Enter"| SETUP --> CREATE
     CREATE --> GS
     CREATE --> BS
     CREATE --> HIT
     CREATE --> AI
+    CREATE -->|"start / reset"| CLOCK
 
     UI -->|"board click"| HIT -->|"GameManager API"| RULES
     UI -->|"sound button click"| TOGGLE -->|"syncs mute state"| HIT
     UI -->|"mode, level, speed or step"| PANEL --> AI
+    UI -->|"valid Turn-mode reveal"| TURN --> AI
     HIT -.->|"if enabled"| AUDIO
     RULES -->|"writes cells"| BS
     RULES -->|"updates counters and result"| GS
@@ -93,13 +101,14 @@ flowchart LR
     RULES -->|"board and game state"| RENDER
     BS -->|"cell values and adjacent counts"| RENDER
     GS -->|"counter and game status"| RENDER
+    CLOCK -->|"elapsed MM:SS"| RENDER
     RENDER --> SCREEN --> P
 
     classDef proc fill:#eef2f9,stroke:#4a6fa5,stroke-width:1.4px,color:#161a21
     classDef store fill:#fdf4e3,stroke:#b58b3a,stroke-width:1.4px,color:#4a3a18
     classDef io fill:#f2f3f5,stroke:#9aa3b0,stroke-width:1.2px,color:#3d4652
-    class UI,SETUP,CREATE,HIT,TOGGLE,PANEL,AI,RULES,RENDER proc
-    class BS,GS,AUDIO store
+    class UI,SETUP,CREATE,HIT,TOGGLE,PANEL,TURN,AI,RULES,RENDER proc
+    class BS,GS,AUDIO,CLOCK store
     class KP,MP,SCREEN,P io
 ```
 
@@ -177,7 +186,6 @@ classDiagram
       +InputHandler input_handler
       +ai
       +List~Button~ buttons
-      +str ui_state
       +str ai_level
       +str ai_mode
       +float ai_timer
@@ -187,6 +195,8 @@ classDiagram
       +str mine_count_input
       +str setup_error
       +bool sound_enabled
+      +float timer_start
+      +float timer_elapsed
       +start_game(num_mines) None
       +confirm_mine_count() None
       +draw_sound_button() None
@@ -200,7 +210,9 @@ classDiagram
       +set_ai_mode(mode) None
       +set_ai_level(level) None
       +change_ai_delay(amount) None
-      +_take_ai_turn() None
+      +_take_ai_turn() Move
+      +_timer_text() str
+      +_freeze_timer_if_game_over() None
     }
 
     class EasyAI {
@@ -219,6 +231,7 @@ classDiagram
     }
 
     class HardAI {
+      +_deduce() List~Move~
     }
 
     class Move {
@@ -230,6 +243,11 @@ classDiagram
 
     class arcade_Window {
       <<library>>
+    }
+
+    class time_perf_counter {
+      <<library>>
+      +perf_counter() float
     }
 
     BoardManager "1" *-- "100" Cell : board
@@ -253,4 +271,5 @@ classDiagram
     MinesweeperWindow ..> EasyAI : creates via make_ai()
     MinesweeperWindow ..> MediumAI : creates via make_ai()
     MinesweeperWindow ..> HardAI : creates via make_ai()
+    MinesweeperWindow ..> time_perf_counter : gameplay clock
 ```

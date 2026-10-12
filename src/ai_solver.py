@@ -13,6 +13,10 @@ creates Move objects describing a legal action (reveal or flag) and then hands
 those moves to the GameManager through the public API.
 
 Created on 2026-09-29
+
+Update 10/11/2026 - Aziz
+Added HardAI class with 1-2-1 pattern recognition for improved solving.
+
 Author: Jamareon Davis
 """
 

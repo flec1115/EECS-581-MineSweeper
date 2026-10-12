@@ -68,17 +68,20 @@ Added logic for AI agent to play the game
 Update 9/30/2026 - Riley Backus
 Added UI for handling the AI agent
 
+update 10/11/2026 - Aziz
+Added timer
+
 Attributions: 
 Authors: Kyler Russell, Blake Pennel, Carter Steenhard
 Creation Date: 9/15/2026
 """
 import arcade
 from pathlib import Path
+import time
 from game_logic import GameManager
 import board_manager
 from input_handler import InputHandler
 from ai_solver import make_ai  # AI solver: factory for the Easy/Medium/Hard solvers
-from Extra_feats import reset_timer, timer  # Timer functions
 
 # Board and window sizing constants.
 # These values control the grid layout, the overall window proportions, and the
@@ -118,7 +121,7 @@ AI_LEVELS = ["easy", "medium", "hard"]
 AI_MODES = ["off", "interactive", "auto"]
 MODE_LABELS = {"off": "Off", "interactive": "Turn", "auto": "Auto"}
 MODE_HELP = {"off": "You play alone",
-             "interactive": "AI moves after each click",
+             "interactive": "AI moves after your reveal",
              "auto": "AI plays by itself"}
 
 #This class is in charge of the Panel that the player can click in to change the AI solver
@@ -160,10 +163,6 @@ class MinesweeperWindow(arcade.Window):
         self.game = None
         self.input_handler = None
 
-        # ui_state tracks where the user is in the startup flow. The app starts in
-        # the mode-selection screen, then moves to a mine-count input screen.
-        self.ui_state = "mode_select"
-
         # AI state: a solver instance, selected difficulty, current mode, and a
         # small timer used for pacing automatic/interactive turns.
         self.ai = None
@@ -189,9 +188,9 @@ class MinesweeperWindow(arcade.Window):
         self.ai_reason = ""
         self.ai_delay = 0.25
         self.buttons = self.build_buttons()
-        
-        # Timer: reset the timer at the start of a new game
-        self.timer_start = reset_timer()  # Timer: start the timer at the beginning of the game
+
+        # The play clock is started when a game begins, not while menus are open.
+        self.timer_start = None
         self.timer_elapsed = None
 
     def start_game(self, num_mines):
@@ -206,9 +205,8 @@ class MinesweeperWindow(arcade.Window):
         self.ai = make_ai(self.game, self.ai_level)
         self.ai_pending = False
         self.ai_reason = ""
-        
-        
-        
+        self.timer_start = time.perf_counter()
+        self.timer_elapsed = None
 
     def confirm_mine_count(self):
         """Start a game with the typed mine count, or report that it is invalid."""
@@ -316,16 +314,16 @@ class MinesweeperWindow(arcade.Window):
 
         if self.game.is_lost:
             self._freeze_timer_if_game_over()
-            status, status_color = f"Game Over: Loss | Time: {self.timer_elapsed}", arcade.color.RED
+            status, status_color = f"Game Over: Loss | Time: {self._timer_text()}", arcade.color.RED
             arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
             arcade.color.BLACK, 18, anchor_x="center", bold=True)
         elif self.game.is_won:
             self._freeze_timer_if_game_over()
-            status, status_color = f"Victory | Time: {self.timer_elapsed}", arcade.color.GREEN
+            status, status_color = f"Victory | Time: {self._timer_text()}", arcade.color.GREEN
             arcade.draw_text("Press R to restart", BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE / 2, 30,
             arcade.color.BLACK, 18, anchor_x="center", bold=True)
         else:
-            status, status_color = f"Playing | Timer: {timer(self.timer_start)}", arcade.color.BLACK
+            status, status_color = f"Playing | Time: {self._timer_text()}", arcade.color.BLACK
 
         arcade.draw_text(status, BOARD_LEFT + board_manager.BOARD_SIZE * CELL_SIZE, board_top + 30,
                          status_color, 18, anchor_x="right")
@@ -350,15 +348,8 @@ class MinesweeperWindow(arcade.Window):
     def on_key_press(self, key, modifiers):
         """Handle mine count entry, game start, restart, and AI hotkeys."""
         if self.game is None:
-            # The startup flow is intentionally simple: press Enter to move from the
-            # mode screen into the mine-count input screen.
-            if self.ui_state == "mode_select":
-                if key == arcade.key.ENTER:
-                    self.ui_state = "mine_setup"
-                return
-
-            # Number input is validated before the game starts so invalid counts do
-            # not create an unusable board state.
+            # The mine-count screen is already visible, so accept digits
+            # immediately instead of requiring a separate mode-selection keypress.
             if arcade.key.KEY_0 <= key <= arcade.key.KEY_9:
                 self.mine_count_input += chr(key)
                 self.setup_error = ""
@@ -431,12 +422,13 @@ class MinesweeperWindow(arcade.Window):
     def _take_ai_turn(self):
         """Play one AI move and record why it was made."""
         if self.game is None or self.game.is_won or self.game.is_lost:
-            return
+            return None
         # The AI returns a Move object with a reason string; this shows the player
         # why the solver chose a particular action.
         move = self.ai.step()
         self.ai_reason = move.reason if move else "no moves available"
         self._freeze_timer_if_game_over()
+        return move
 
     # AI solver: Arcade calls this every frame to pace automatic solving.
     def on_update(self, delta_time):
@@ -454,14 +446,25 @@ class MinesweeperWindow(arcade.Window):
             self.ai_timer += delta_time
             if self.ai_timer >= self.ai_delay:
                 self.ai_timer = 0.0
-                self.ai_pending = False
-                self._take_ai_turn()
+                move = self._take_ai_turn()
+                # A flag is preparatory bookkeeping, not the AI's turn-ending
+                # reveal. Keep its turn pending so it can make a reveal next.
+                self.ai_pending = move is not None and move.action == "flag"
+
+    def _timer_text(self):
+        """Return the current or frozen play time as minutes and seconds."""
+        elapsed = self.timer_elapsed
+        if elapsed is None:
+            elapsed = time.perf_counter() - self.timer_start
+        minutes, seconds = divmod(int(elapsed), 60)
+        return f"{minutes:02d}:{seconds:02d}"
 
     def _freeze_timer_if_game_over(self):
-        """Save the elapsed time once the game reaches a win or loss."""
-        if (self.timer_elapsed is None and self.game is not None
+        """Capture the play time once when the game reaches a win or loss."""
+        if (self.timer_elapsed is None and self.timer_start is not None
+                and self.game is not None
                 and (self.game.is_won or self.game.is_lost)):
-            self.timer_elapsed = timer(self.timer_start)
+            self.timer_elapsed = time.perf_counter() - self.timer_start
 
     def on_mouse_press(self, x, y, button, modifiers):
         """Send mouse input to the AI panel or the input handler."""
@@ -486,12 +489,27 @@ class MinesweeperWindow(arcade.Window):
         if self.game.is_lost or self.game.is_won:
             return
 
+        # Only a left-click on an in-bounds, covered, unflagged cell reveals a
+        # new square and consumes the player's turn. Flagging/unflagging,
+        # clicking a flagged cell, or clicking elsewhere does not hand off.
+        clicked_revealable_cell = False
+        if button == arcade.MOUSE_BUTTON_LEFT:
+            col = int((x - BOARD_LEFT) // CELL_SIZE)
+            row = int((y - BOARD_BOTTOM) // CELL_SIZE)
+            if (0 <= row < board_manager.BOARD_SIZE
+                    and 0 <= col < board_manager.BOARD_SIZE):
+                clicked_revealable_cell = (
+                    self.game.board.is_covered(row, col)
+                    and not self.game.board.is_flagged(row, col)
+                )
+
         self.input_handler.handle_click(x, y, button)
         self._freeze_timer_if_game_over()
 
-        # In interactive mode, a left click hands the turn to the AI after the
-        # player's action has been applied.
-        if self.ai_mode == "interactive" and button == arcade.MOUSE_BUTTON_LEFT:
+        # In interactive mode, pass the turn only after a revealable square was
+        # clicked; right-click flag changes leave the turn with the player.
+        if (self.ai_mode == "interactive" and clicked_revealable_cell
+                and not self.game.is_lost and not self.game.is_won):
             self.ai_pending = True
             self.ai_timer = 0.0
 
